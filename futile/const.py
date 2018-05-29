@@ -1,0 +1,1 @@
+BOM = '\xEF\xBB\xBF'

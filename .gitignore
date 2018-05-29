@@ -1,0 +1,8 @@
+*.pyc
+.venv
+__pycache__
+*.swp
+*.swp
+*.swo
+tags
+tags*

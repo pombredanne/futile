@@ -12,10 +12,13 @@ import collections
 import itertools
 import functools
 from datetime import timedelta
+from typing import Iterable
 
 
 def chunked(chunk_size, iterable, len_func=len):
     """
+    数组切片，每个切片的大小是 chunk_size
+
     >>> list(chunked(['a', 'b', 'c', 'd'], 2))
     [['a', 'b'], ['c', 'd']]
     >>> list(chunked(['a', 'b', 'c', 'd'], 3))
@@ -45,29 +48,30 @@ def chunked(chunk_size, iterable, len_func=len):
 
 
 def chunked_qs(chunk_size, query_set,):
+    """
+    Django QuerySet 切片
+    """
     return chunked(query_set, chunk_size, lambda qs: qs.count())
 
 
-def merge_list(obj1, obj2):
-    assert isinstance(obj1, list)
-    assert isinstance(obj2, list)
-    ret = []
-    ret.extend(obj1)
-    ret.extend(obj2)
-    return ret
+def merge_dict(obj1: dict, obj2: dict) -> dict:
+    """
+    合并字典
 
-
-def merge_dict(obj1, obj2):
-    assert isinstance(obj1, dict)
-    assert isinstance(obj2, dict)
+    >>> d1 = {'a': 1}
+    >>> d2 = {'b': 2}
+    >>> merge_dict(d1, d2)
+    {'a': 1, 'b': 2}
+    """
     ret = {}
     ret.update(obj1)
     ret.update(obj2)
     return ret
 
 
-def compact(iterable):
+def compact(iterable: Iterable):
     """
+    删除数组中为falsy、0的元素
     >>> list(compact([0, 1, 2]))
     [1, 2]
     >>> list(compact([1, 2]))
@@ -80,7 +84,7 @@ def compact(iterable):
             yield el
 
 
-def compact_dict(dct):
+def compact_dict(dct: dict):
     """
     >>> compact_dict({'a': 'a', 'b': None})
     {'a': 'a'}
@@ -92,14 +96,14 @@ def compact_dict(dct):
     return result
 
 
-def fill(sequence, value, start=0, stop=0):
+def fill(sequence, value, start=0, stop=None):
     """
     >>> list(fill([1, 2, 3], '*'))
     ['*', '*', '*']
     >>> list(fill([1, 2, 3], '*', start=1, stop=3))
     [1, '*', '*']
     """
-    if stop == 0:
+    if stop is None:
         stop = len(sequence)
     for i in range(len(sequence)):
         if start <= i < stop:
@@ -108,7 +112,7 @@ def fill(sequence, value, start=0, stop=0):
             yield sequence[i]
 
 
-def find(sequence, key, reverse=False, errors='ignore'):
+def find(sequence, key, *, default=None, reverse=False, errors='ignore'):
     """
     find specific element in an array by `key` function
 
@@ -126,7 +130,7 @@ def find(sequence, key, reverse=False, errors='ignore'):
                 continue
             else:
                 raise
-    return None
+    return default
 
 
 def find_index(iterable, key, reverse=False, errors='ignore'):
@@ -156,7 +160,8 @@ def head(iterable):
     1
     >>> head([])
     """
-    # for django queryset using slicing is significantly faster than iterating to get the first element
+    # for django queryset using slicing is significantly faster than iterating to
+    # get the first element
     if hasattr(iterable, '__getitem__'):
         try:
             return iterable[0]
@@ -170,17 +175,8 @@ def head(iterable):
 first = head
 
 
-def take(iterable, n):
-    """
-    >>> take([1, 2, 3], 1)
-    [1]
-    """
-    return [element for i, element in enumerate(iterable) if i < n]
-
-
 def flatten(iterable):
     """
-    This should best be implemented with python3 yield from, however, for compatibility...
     >>> list(flatten([1, [2], 3]))
     [1, 2, 3]
     >>> list(flatten([1, [2], [3, [4]]]))
@@ -188,13 +184,11 @@ def flatten(iterable):
     >>> list(flatten(['hello']))
     ['hello']
     """
-    result = []
     for element in iterable:
         if hasattr(element, '__iter__') and not isinstance(element, (dict, str, bytes)):
-            result.extend(flatten(element))
+            yield from flatten(element)
         else:
-            result.append(element)
-    return result
+            yield element
 
 
 def tail(iterable):
@@ -207,6 +201,16 @@ def tail(iterable):
 
 
 last = tail
+
+
+def take(iterable, n):
+    """
+    >>> list(take(range(5), 1))
+    0
+    """
+    for i, e in enumerate(iterable):
+        if i < n:
+            yield e
 
 
 def unique(iterable, key=lambda x: x):
@@ -224,6 +228,10 @@ def unique(iterable, key=lambda x: x):
 
 
 def without(iterable, values, key=lambda x: x):
+    """
+    >>> without([1, 2, 3], 2)
+    [1, 3]
+    """
     if not isinstance(values, (list, set, tuple)):
         values = [values]
     for element in iterable:
@@ -291,7 +299,8 @@ reduce = functools.reduce
 
 def split_ranges(start, stop, count=None, step=None):
     """
-    split a range into subranges with step, for max count times. the last subrange has the remaining range.
+    split a range into subranges with step, for max count times. the last subrange
+    has the remaining range.
     if count is not supplied, count is caculated automatically
     if step is not not supplied, will divide equally
     >>> from datetime import datetime, timedelta
@@ -328,36 +337,22 @@ def split_ranges(start, stop, count=None, step=None):
     return [(start+i*step, start+(i+1)*step) for i in range(int(count))]
 
 
-def dict_transform(src, fields):
-    dst = {}
-    for from_key, to_key in fields.items():
-        dst[to_key] = src.get(from_key)
-    return dst
-
-
-def take_keys(d, keys=None, default=None):
+def take_indices(l, indices=None, default=None):
     """
-    >>> d = {'foo': 'bar', 'hello': 'world'}
-    >>> take_keys(d, ['foo', 'no'], None)
-    {'foo': 'bar', 'no': None}
+    >>> take_indices([1, 2, 3], [0, 2, 5])
+    [1, 3, None]
     """
-    keys = keys or []
-    return {k: d.get(k, default) for k in keys}
-
-
-def filter_keys(d, keys=None):
-    """
-    >>> d = {'a': 1, 'b': 2}
-    >>> filter_keys(d, keys=['a'])
-    {'a': 1}
-    """
-    keys = set(keys or [])
-    return {k: v for k, v in d.items() if k in keys}
-
-
-def take_indices(l, indices=None):
     indices = indices or []
-    return [l[idx] for idx in indices if idx < len(l)]
+    for idx in indices:
+        yield l[idx]
+
+
+def group_by_attr(l, attr):
+    ret = collections.defaultdict(list)
+    for el in l:
+        val = getattr(el, attr, None)
+        ret[val].append(el)
+    return ret
 
 
 if __name__ == '__main__':

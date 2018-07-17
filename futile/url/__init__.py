@@ -7,10 +7,16 @@ __all__ = ['depack_jsonp', 'json_api', 'jsonp_api', 'mget_url_param',
            'build_url', 'get_domain', 'get_top_domain', 'normalize_url']
 
 import re
+import os
 import json
 import requests
+from ..file import read_list_from_file
+from ..string import ensure_str
 from urllib.parse import quote as urlquote, unquote as urlunquote, urlsplit, \
         urlunsplit, urlencode, parse_qsl
+
+PUBLIC_SUFFIX_FILE = os.path.join(os.path.dirname(__file__), 'public_suffix.dat')
+PUBLIC_SUFFIX = set(read_list_from_file(PUBLIC_SUFFIX_FILE, comment='//'))
 
 
 def depack_jsonp(jsonp):
@@ -18,7 +24,7 @@ def depack_jsonp(jsonp):
     return json dict str from a jsonp str, if not found, return None
 
     >>> print(depack_jsonp('json_callback({"a": "b"})'))
-    {"a": "b"}
+    '{"a": "b"}'
     >>> print(depack_jsonp(''))
     None
     """
@@ -29,7 +35,11 @@ def depack_jsonp(jsonp):
         return None
 
 
-def json_api(url, download_func):
+def _download(url):
+    return requests.get(url).text
+
+
+def json_api(url, download_func=_download):
     """
     download and return the json data from a json api
 
@@ -37,12 +47,10 @@ def json_api(url, download_func):
     >>> json_api('http://example.com', download_func)
     {'a': 'b'}
     """
-    if not download_func:
-        download_func = lambda url: requests.get(url).text
     return json.loads(download_func(url))
 
 
-def jsonp_api(url, download_func):
+def jsonp_api(url, download_func=_download):
     """
     download and return the json data from a jsonp api in one step
 
@@ -50,8 +58,6 @@ def jsonp_api(url, download_func):
     >>> jsonp_api('http://example.com', download_func)
     {'a': 'b'}
     """
-    if not download_func:
-        download_func = lambda url: requests.get(url).text
     jsonp = download_func(url)
     if not jsonp:
         return None
@@ -59,7 +65,7 @@ def jsonp_api(url, download_func):
     return json_data
 
 
-def mget_url_param(url, params, default=None):
+def mget_url_param(url: str, params: list, default=None) -> dict:
     """
     >>> mget_url_param('http://foo.bar/search?a=a&b=b&c=c', ['a', 'b', 'd'])
     {'a': 'a', 'b': 'b', 'd': None}
@@ -76,7 +82,7 @@ def mget_url_param(url, params, default=None):
     return result
 
 
-def get_url_param(url, param, default=None):
+def get_url_param(url: str, param: list, default=None):
     """
     >>> get_url_param('http://foo.bar?a=a&b=b&c=c', 'a')
     'a'
@@ -85,7 +91,7 @@ def get_url_param(url, param, default=None):
     return result[param]
 
 
-def update_url_param(url, params):
+def update_url_param(url: str, params: dict) -> str:
     """
     >>> update_url_param('http://google.com/search?q=h&lang=zh', {'q': 'r', 'lang': 'en'})
     'http://google.com/search?q=r&lang=en'
@@ -99,11 +105,12 @@ def update_url_param(url, params):
     return urlunsplit([u.scheme, u.netloc, u.path, query_string, u.fragment])
 
 
-def parse_qs_dict(query_string):
+def parse_qs_dict(query_string: str) -> dict:
+    query_string = ensure_str(query_string)
     return dict(parse_qsl(query_string))
 
 
-def build_url(url, params):
+def build_url(url: str, params: dict) -> str:
     """
     >>> build_url('http://foo.bar/search', {'q': 'foo'})
     'http://foo.bar/search?q=foo'
@@ -117,19 +124,20 @@ def build_url(url, params):
     return urlunsplit([u.scheme, u.netloc, u.path, query, u.fragment])
 
 
-def get_domain(url):
-    u"""
+def get_domain(url: str) -> str:
+    """
     >>> get_domain('http://user:pass@google.com:8000')
     'google.com'
     >>> get_domain('http://google.com/headline.html')
     'google.com'
     """
+    url = url.lower()
     u = urlsplit(url)
     return re.sub(r':.*$', '', re.sub(r'^.*@', '', u.netloc))
 
 
-def get_top_domain(url):
-    u"""
+def get_main_domain(url: str) -> str:
+    """
     >>> get_top_domain('http://user:pass@www.google.com:8080')
     'google.com'
     >>> get_top_domain('http://www.sina.com.cn')
@@ -140,70 +148,73 @@ def get_top_domain(url):
     'buaa.edu.cn'
     >>> get_top_domain('http://t.cn')
     't.cn'
+    >>> get_top_domain('http://www.gov.cn')  # 这里注册的域名是 www
+    'www.gov.cn'
+    >>> get_top_domain('htttp://com.cn')  # 实际上这是不合法的 url，因为 com.cn 是顶级域名
+    'com.cn'
     """
     domain = get_domain(url)
     domain_parts = domain.split('.')
-    if len(domain_parts) < 2:
+    if len(domain_parts) <= 2:
         return domain
-    top_domain_parts = 2
-    # if a domain's last part is 2 letter long, it must be country name
-    if len(domain_parts[-1]) == 2:
-        if domain_parts[-1] in ['uk', 'jp']:
-            if domain_parts[-2] in ['co', 'ac', 'me', 'gov', 'org', 'net']:
-                top_domain_parts = 3
-        else:
-            if domain_parts[-2] in ['com', 'org', 'net', 'edu', 'gov']:
-                top_domain_parts = 3
-    return '.'.join(domain_parts[-top_domain_parts:])
+    for i in reversed(range(len(domain_parts))):
+        possible_suffix = '.'.join(domain_parts[-i:])
+        if possible_suffix in PUBLIC_SUFFIX:
+            return '.'.join(domain_parts[-i - 1:])
+    return domain
 
 
-def normalize_url(url, remove_query=None, keep_query=None):
+def normalize_url(url: str, remove_params=None, keep_params=None,
+                  remove_fragment=True) -> str:
     """
-    >>> normalize('http://google.com')
+    >>> normalize_url('http://google.com')
     'http://google.com/'
-    >>> normalize('HTTP://User:Pass@Google.com:80')
-    'http://User:Pass@google.com/'
-    >>> normalize('http://google.com/foo/bar/../')
+    >>> normalize_url('HTTPS://User:Pass@Google.com:80')
+    'https://User:Pass@google.com/'
+    >>> normalize_url('http://google.com/foo/bar/../')
     'http://google.com/foo/'
-    >>> normalize('http://google.com/foo')
+    >>> normalize_url('http://google.com/foo')
     'http://google.com/foo'
-    >>> normalize('http://google.com/foo/')
+    >>> normalize_url('http://google.com/foo/')
     'http://google.com/foo/'
-    >>> normalize('httP://google.com/')
+    >>> normalize_url('httP://google.com/')
     'http://google.com/'
-    >>> normalize('google.com/?a=c&a=b')
-    'google.com/?a=b&a=c'
-    >>> normalize('google.com/?b=a&a=a')
-    'google.com/?a=a&b=a'
-    >>> normalize('google.com//?b=a&a=a')
-    'google.com/?a=a&b=a'
-    >>> normalize('google.com/a/b/../?b=a&a=a')
-    'google.com/a/?a=a&b=a'
-    >>> normalize('google.com/?a=a&spam=shit', remove_query=['spam'])
-    'google.com/?a=a'
+    >>> normalize_url('google.com/?a=c&a=b')
+    'http://google.com/?a=b&a=c'
+    >>> normalize_url('google.com/?b=a&a=a')
+    'http://google.com/?a=a&b=a'
+    >>> normalize_url('google.com//?b=a&a=a')
+    'http://google.com/?a=a&b=a'
+    >>> normalize_url('google.com/a/b/../?b=a&a=a')
+    'http://google.com/a/?a=a&b=a'
+    >>> normalize_url('google.com/?a=a&spam=shit', remove_params=['spam'])
+    'http://google.com/?a=a'
+    >>> normalize_url('http://google.com/a/b/c/d/e')
+    'http://google.com/a/b/c/d/e'
     """
 
     u = urlsplit(url)
 
     # 1. scheme
     scheme = u.scheme.lower()
+    if not scheme:
+        scheme = 'http'
 
     # 2. netloc
     hostname = (u.hostname or '').lower()
     if hostname and hostname[-1] == '.':
-        hostname = hostname[:-1] # remove ending dot
+        hostname = hostname[:-1]  # remove ending dot
     if u.port == 80 and scheme == 'http' or u.port == 443 and scheme == 'https':
         port = ''
     else:
         port = u.port
     netloc = hostname
     if u.username:
-        netloc = '{}:{}@{}'.format(u.username or '', u.password or '', netloc)
+        netloc = f"{u.username or ''}:{u.password or ''}@{netloc}"
     if port:
-        netloc = '{}:{}'.format(netloc, port)
+        netloc = f'{netloc}:{port}'
 
     # 3. path
-    fix_quote = lambda s: urlquote(urlunquote(s), safe=":=~+!$,;'@()*[]") # NOTE no /?&#
     path_parts = u.path.split('/')
     new_path_parts = []
     for i, p in enumerate(path_parts):
@@ -213,6 +224,9 @@ def normalize_url(url, remove_query=None, keep_query=None):
             new_path_parts.pop()
         elif p != '' or i == 0 or i == len(path_parts) - 1:
             new_path_parts.append(p)
+
+    def fix_quote(s):
+        return urlquote(urlunquote(s), safe=":=~+!$,;'@()*[]") # NOTE no /?&#
     new_path_parts = map(fix_quote, new_path_parts)
     path = '/'.join(new_path_parts)
     if not path:
@@ -221,14 +235,21 @@ def normalize_url(url, remove_query=None, keep_query=None):
     # query
     qsl = parse_qsl(u.query)
     qsl.sort()
-    if remove_query:
-        qsl = [qs for qs in qsl if qs[0] not in remove_query]
-    if keep_query:
-        qsl = [qs for qs in qsl if qs[0] in keep_query]
+    if remove_params:
+        qsl = [qs for qs in qsl if qs[0] not in remove_params]
+    if keep_params:
+        qsl = [qs for qs in qsl if qs[0] in keep_params]
     qsl = [(urlunquote(qs[0]), urlunquote(qs[1])) for qs in qsl]
     query = urlencode(qsl, safe=":=~+!$,;'@()*[]")
 
-    return urlunsplit([scheme, netloc, path, query, u.fragment])
+    # fragment
+    if remove_fragment:
+        fragment = ''
+    else:
+        fragment = u.fragment
+
+    return urlunsplit([scheme, netloc, path, query, fragment])
+
 
 if __name__ == '__main__':
     import doctest

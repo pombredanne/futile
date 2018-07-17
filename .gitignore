@@ -6,3 +6,4 @@ __pycache__
 *.swo
 tags
 tags*
+.mypy_cache

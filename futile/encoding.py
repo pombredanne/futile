@@ -10,7 +10,7 @@ __all__ = ['try_decode']
 
 import re
 import sys
-from .string import ensure_unicode
+from .string import ensure_str
 try:
     import cchardet as chardet
 except ImportError:
@@ -40,7 +40,7 @@ def fix_charset(encoding):
     or charset determination is a subset of a larger
     charset.  Created because of issues with Chinese websites
     """
-    encoding = ensure_unicode(encoding.lower())
+    encoding = ensure_str(encoding.lower())
     return CHARSETS.get(encoding, encoding)
 
 

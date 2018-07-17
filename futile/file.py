@@ -10,7 +10,7 @@ __all__ = ['read_list_from_file', 'write_list_to_file', 'read_list_from_csv',
 import os
 import csv
 import threading
-from .string import ensure_bytes, ensure_unicode
+from .string import ensure_bytes, ensure_str
 
 class ThreadSafeWriter:
     '''
@@ -39,7 +39,7 @@ class ThreadSafeWriter:
         return True
 
     def _encode(self, row):
-        return [ensure_unicode(cell) for cell in row]
+        return [ensure_str(cell) for cell in row]
 
     def writerow(self, row):
         row = self._encode(row)
@@ -74,7 +74,7 @@ class ThreadSafeDictWriter(csv.DictWriter):
         return True
 
     def _encode(self, row):
-        return {ensure_unicode(k): ensure_unicode(v) for k, v in row.items()}
+        return {ensure_str(k): ensure_str(v) for k, v in row.items()}
 
     def writerow(self, row):
         row = self._encode(row)
@@ -90,11 +90,10 @@ class ThreadSafeDictWriter(csv.DictWriter):
         self._file.close()
 
 
-
-def read_list_from_file(filename, type_=str):
+def read_list_from_file(filename, type_=str, comment=None):
     """read a list from file"""
     with open(filename, encoding='utf-8') as f:
-        return [type_(line.strip()) for line in f]
+        return [type_(line.strip()) for line in f if not comment or not line.startswith(comment)]
 
 
 def write_list_to_file(filename, lst):

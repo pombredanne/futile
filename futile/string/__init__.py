@@ -1,7 +1,11 @@
 # coding: utf-8
 
 import re
-from .array import compact
+try:
+    import cchardet as chardet
+except ImportError:
+    import chardet
+from ..array import compact
 
 
 def expand(raw):
@@ -26,36 +30,39 @@ def expand(raw):
     return expanded
 
 
-def ensure_unicode(s, encoding='utf-8', errors='ignore'):
-    """convert str(bytes) to unicode(str)
-    >>> to_unicode(b'hello') == 'hello'
+def ensure_str(s, encoding='utf-8', use_chardet=False, errors='ignore'):
+    """
+    >>> ensure_str(b'hello') == 'hello'
     True
-    >>> to_unicode('你好') == '你好'
+    >>> ensure_str('你好') == '你好'
     True
-    >>> isinstance(to_unicode('你好'), unicode_type)
+    >>> isinstance(ensure_str('你好'), str)
     True
     """
 
+    if use_chardet:
+        r = chardet.detect(s[:1024])
+        encoding = r['encoding']
     if isinstance(s, bytes):
         return s.decode(encoding=encoding, errors=errors)
     return s
 
 
 def ensure_bytes(s, encoding='utf-8', errors='ignore'):
-    """convert unicode(str) to str(bytes)
-    >>> to_bytes(b'hello') == b'hello'
+    """
+    >>> ensure_bytes(b'hello') == b'hello'
     True
-    >>> isinstance(to_bytes('你好'), bytes)
-    True
-    >>> isinstance(to_bytes(123), bytes)
+    >>> isinstance(ensure_bytes('你好'), bytes)
     True
     """
     if isinstance(s, str):
         return s.encode(encoding=encoding, errors=errors)
     return s
 
+
 def snake_case(s):
-    """convert token(s) to snake case
+    """
+    convert token(s) to snake case
     >>> snake_case('fooBar')
     'foo_bar'
     >>> snake_case('foo_bar')
@@ -69,20 +76,36 @@ def snake_case(s):
     >>> snake_case('foo bar')
     'foo_bar'
     """
-    s = to_unicode(s)
-    s = re.sub(r'[A-Z]', r'-\g<0>', s, flags=re.UNICODE)  # turing uppercase to seperator with lowercase
+    s = ensure_str(s)
+    # turing uppercase to seperator with lowercase
+    s = re.sub(r'[A-Z]', r'-\g<0>', s, flags=re.UNICODE)
     words = compact(re.split(r'\W+', s, flags=re.UNICODE))
     return '_'.join([word.lower() for word in words])
 
 
 def dash_case(s):
+    """
+    >>> snake_case('fooBar')
+    'foo-bar'
+    >>> snake_case('foo_bar')
+    'foo-bar'
+    >>> snake_case('foo-bar')
+    'foo-bar'
+    >>> snake_case('FooBar')
+    'foo-bar'
+    >>> snake_case('Foo-Bar')
+    'foo-bar'
+    >>> snake_case('foo bar')
+    'foo-bar'
+    """
     if s:
         s = snake_case(s).replace('_', '-')
     return s
 
 
 def pascal_case(s):
-    """convert token(s) to PascalCase
+    """
+    convert token(s) to PascalCase
     >>> pascal_case('fooBar')
     'FooBar'
     >>> pascal_case('foo_bar')
@@ -96,14 +119,17 @@ def pascal_case(s):
     >>> pascal_case('foo bar')
     'FooBar'
     """
-    s = to_unicode(s)
-    s = re.sub(r'[A-Z]', r'-\g<0>', s, flags=re.UNICODE)  # turing uppercase to seperator with lowercase
+    s = ensure_str(s)
+    # turing uppercase to seperator with lowercase
+    s = re.sub(r'[A-Z]', r'-\g<0>', s, flags=re.UNICODE)
     s = s.replace('_', '-')
     words = compact(re.split(r'\W+', s, flags=re.UNICODE))
     return ''.join([word.lower().capitalize() for word in words])
 
+
 def camel_case(s):
-    """convert token(s) to camelCase
+    """
+    convert token(s) to camelCase
     >>> camel_case('fooBar')
     'fooBar'
     >>> camel_case('foo_bar')
@@ -124,27 +150,47 @@ def camel_case(s):
 
 
 def truncate(s, length, ending='…'):
-    """truncate string to given length
+    """
+    truncate string to given length
+
     >>> truncate('hello', 5)
     'hello'
     >>> truncate('hello', 4)
     'hel…'
     """
-    s = to_unicode(s)
+    s = ensure_str(s)
     if len(s) > length:
         return s[:length - 1] + ending
     return s
 
 
 def to_words(s, as_letter='-'):
-    """convert given string to words list, hypen(-) and underscore is considered a letter
+    """
+    convert given string to words list, hypen(-) and underscore is considered a letter
+
     >>> to_words('hello, world')
     ['hello', 'world']
     >>> to_words('the quick brown fox jumps over the lazy dog.')
     ['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog']
     """
-    s = to_unicode(s)
-    return re.findall(r'[\w\-]+', s, flags=re.UNICODE) # NOTE greedy mode
+    s = ensure_str(s)
+    return re.findall(r'[\w\-]+', s, flags=re.UNICODE)  # NOTE greedy mode
+
+
+def unicode_strip(s) -> str:
+    '''
+    str.strip, but with unicode space characters
+
+    >>> unicode_strip('')
+    ''
+    >>> unicode_strip(u'　 \x0ba\ufeff ')
+    u'a'
+    '''
+    if not s:
+        return ''
+    s = ensure_str(s)
+    spaces = '[ \t\n\r\x00-\x1F\x7F\xA0\xAD\u2000-\u200F\u201F\u202F\u3000\uFEFF]+'
+    return re.sub(u'^%s|%s$' % (spaces, spaces), '', s)
 
 
 if __name__ == '__main__':

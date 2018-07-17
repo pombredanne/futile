@@ -34,6 +34,11 @@ def build_doc(page, url=None, encoding=None):
 
 
 def mget_re_val(page, res, *, default=""):
+    """
+    >>> page = 'a=123456'
+    >>> mget_re_val(page, {'number': ('\d+', 0)})
+    {'number': '123456'}
+    """
     ret = {}
     for key, options in res.items():
         if isinstance(options, str):
@@ -50,7 +55,31 @@ def mget_re_val(page, res, *, default=""):
 
 
 def get_re_val(page, pattern, group=1, default=""):
+    """
+    >>> page = '123456'
+    >>> get_re_val(page, '\d+', 0)
+    '123456'
+    """
     return mget_re_val(page, {'_': (pattern, group)}, default=default)['_']
+
+
+def get_js_variable(page, variable):
+    """
+    >>> page = '''
+    ... var is_follow = "";
+    ... var nickname = "Golang语言社区";
+    ... var appmsg_type = "9";
+    ... var ct = "1531495140";
+    ... var publish_time = "2018-07-13" || "";
+    ... var user_name = "gh_921b7321b3f3";
+    ... '''
+    >>> get_js_variable(page, 'nickname')
+    'Golang语言社区'
+    >>> get_js_variable(page, 'publish_time')
+    '2018-07-13'
+    """
+    pattern = r'var\s+%s\s*=\s*"(.*?)"' % variable
+    return get_re_val(page, pattern)
 
 
 def mget_xpath_val(page_or_doc, xpaths, *, url=None, multi=False, encoding='utf-8',

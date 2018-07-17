@@ -13,8 +13,11 @@ import pickle
 
 
 def keep_run(exception_sleep=10):
-    """Keep a function running forever, if exception raised, sleep for a while
-    Can be used in thread.run"""
+    """
+    Keep a function running forever, if exception raised, sleep for a while
+
+    This decorator can be used atop thread.run
+    """
 
     def decorated(fn):
         @wraps(fn)
@@ -28,49 +31,66 @@ def keep_run(exception_sleep=10):
         return wrapped
     return decorated
 
+
 def after(n):
+    """
+    run a function only after n times
+    """
     def decorate(fn):
-        i = [0] # work around for nonlocal in python2
+        i = 0
         @wraps(fn)
         def wrapped(*args, **kwargs):
-            i[0] += 1
-            if i[0] >= n:
+            nonlocal i
+            i += 1
+            if i >= n:
                 return fn(*args, **kwargs)
         return wrapped
     return decorate
 
+
 def before(n):
+    """
+    run a function only the first n times
+    """
     def decorate(fn):
-        i = [0] # work around for nonlocal in python2
+        i = 0
         @wraps(fn)
         def wrapped(*args, **kwargs):
-            i[0] += 1
-            if i[0] < n:
+            nonlocal i
+            i += 1
+            if i < n:
                 return fn(*args, **kwargs)
         return wrapped
     return decorate
+
 
 def throttle(wait=0, error_wait=0):
 
-    class context: # work around for nonlocal in python 2
-        cache_time = None
-        cache_value = None
+    cache_time = None
+    cache_value = None
 
     def decorate(fn):
         @wraps(fn)
         def wrapped(*args, **kwargs):
-            if context.cache_time and context.cache_time + wait > time.time():
+            nonlocal cache_time
+            nonlocal cache_value
+            if cache_time and cache_time + wait > time.time():
                 while True:
-                    if context.cache_value:
+                    if cache_value:
                         pass
 
-class memoized(object):
-    """cache a function's reponse by arguments signature, args and kwargs are both supported,
-    deprecated, consider using functools.lru_cache"""
+
+class memoized:
+    """
+    Cache a function's reponse by arguments signature, args and kwargs are both supported.
+
+    Deprecated, consider using functools.lru_cache
+    """
     # TODO, fn and class method?
     def __init__(self, fn):
         self.fn = fn
         self.memo = {}
+
     def __call__(self, *args, **kwargs):
         key = pickle.dumps(args) + pickle.dumps(kwargs)
         if key not in self.memo:
@@ -80,19 +100,26 @@ class memoized(object):
             logging.debug('hit')
         return self.memo[key]
 
+
 def no_raise(exceptions=Exception, default=None):
+    """
+    Instead of raising exceptions, return boolean values to indicate errors.
+    """
     @wraps
     def decorate(fn):
         def wrapped(*args, **kwargs):
             try:
-                return 'success', fn(*args, **kwargs)
+                return True, fn(*args, **kwargs)
             except exceptions:
-                return 'failed', default
+                return False, default
         return wrapped
     return decorate
 
+
 def rate_limited(max_qps):
-    """the decorated function can be called only `max_qps` per second, otherwise it's blocked."""
+    """
+    the decorated function can be called only `max_qps` per second, otherwise it's blocked.
+    """
     lock = threading.Lock()
     min_interval = 1.0 / max_qps
     get_time = time.perf_counter if sys.version_info.major > 2 else time.clock
@@ -113,9 +140,12 @@ def rate_limited(max_qps):
     return decorate
 
 
-def synchronized(lock):
-    """ Synchronization decorator."""
-
+def synchronized(lock=None):
+    """
+    Synchronization decorator.
+    """
+    if lock is None:
+        lock = threading.Lock()
     def wrap(f):
         def locked(*args, **kw):
             lock.acquire()
@@ -127,18 +157,19 @@ def synchronized(lock):
     return wrap
 
 
-
-class lazyproperty(object):
+class lazyproperty:
     """
     >>> import math
-    >>> class Circle:
-    ...     def __inti__(self, radius):
-    ...         self.radius = radius
+    >>> class Square:
+    ...     def __inti__(self, width):
+    ...         self.width = width
     ...     @lazyproperty
     ...     def area(self):
     ...         ''' only computed on first call'''
-    ...         return math.pi * self.radius ** 2
-    >>> c = Circle(5)
+    ...         return self.width ** 2
+    >>> c = Square(5)
+    >>> c.area
+    25
     """
 
     def __init__(self, fn):

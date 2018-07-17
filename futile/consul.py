@@ -16,3 +16,9 @@ def register_service(service_name: str, *, address: str = None, port: int = None
     if address is None:
         address = get_local_ip()
     consul.agent.service.register(service_name, address=address, port=port)
+
+
+def deregister_service(service_name: str):
+    consul = Consul()
+    consul.agent.service.deregister(service_name)
+

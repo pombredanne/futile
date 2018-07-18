@@ -1,3 +1,9 @@
+import time
+from typing import List
+from .signal import handle_exit
+from .consul import register_service, deregister_service
+
+
 def script_init(script_name, *,
                 maintainers: List[str],
                 conf_file: str,
@@ -17,7 +23,19 @@ def script_init(script_name, *,
         conf_file=conf_file,
     )
 
-def service_init():
+
+def run_service(server, service_name, port):
     """
     初始化一个服务
     """
+    server.add_insecure_port(f'[::]:{port}')
+
+    def exit():
+        deregister_service(service_name)
+        server.stop(grace=True)
+
+    with handle_exit(exit):
+        server.start()
+        register_service(service_name, port=port)
+        while True:
+            time.sleep(3600)

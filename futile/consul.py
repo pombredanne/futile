@@ -11,6 +11,13 @@ def lookup_service(service_name):
     return endpoints
 
 
+@lru_cache(maxsize=256)
+def lookup_kv(key, default=None):
+    consul = Consul()
+    _, data = consul.kv.get(key)
+    return data.get('Value', default)
+
+
 def register_service(service_name: str, *, address: str = None, port: int = None):
     consul = Consul()
     if address is None:

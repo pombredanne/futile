@@ -103,6 +103,9 @@ def dash_case(s):
     return s
 
 
+slugify = dash_case
+
+
 def pascal_case(s):
     """
     convert token(s) to PascalCase

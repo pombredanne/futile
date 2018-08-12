@@ -14,6 +14,7 @@ def get_page(url):
     except Exception:
         return None
 
+
 def get_random_desktop_ua():
     """generate a random user-agent of desktop browser"""
     platforms = ['Windows NT 6.1', 'Macintosh; Intel Mac OS X 10_10_1', 'X11; Linux x86_64', 'Windows NT 6.1; WOW64']

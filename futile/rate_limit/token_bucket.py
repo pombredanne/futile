@@ -3,7 +3,7 @@ import time
 
 class TokenBucket:
 
-    def __init__(self, capacity: int, fill_rate: int, fill_interval: int) -> None:
+    def __init__(self, capacity: int, fill_rate: int, fill_interval: int = 1) -> None:
         self.capacity = capacity
         self.tokens = 0
         self.fill_rate = fill_rate

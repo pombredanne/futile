@@ -7,7 +7,7 @@ def get_redis_client(conf):
 
 
 def make_redis_client() -> redis.StrictRedis:
-    addresses = lookup_service('redis.db')
+    addresses = lookup_service('db.redis')
     ip, port = addresses[0]
     return redis.StrictRedis(ip, port)
 

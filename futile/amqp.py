@@ -135,7 +135,7 @@ class Worker:
             try:
                 handle(message)
             except Exception as e:
-                L.info('handle message %s error %s', message, e)
+                L.exception('handle message %s error %s', message, e)
             acker = partial(ch.basic_ack, delivery_tag=method.delivery_tag)
             self._client.add_callback_threadsafe(acker)
 

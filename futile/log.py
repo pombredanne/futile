@@ -33,9 +33,13 @@ def init_log(script_name,
     root_logger.addHandler(console_handler)
 
     # add file logger
-    home = os.environ.get('HOME')
+    if os.environ.get('DEBUG'):
+        home = os.environ.get('HOME')
+        log_path = f'{home}/log/{script_name}.log'
+    else:
+        log_path = f'/var/log/{script_name}.log'
     file_handler = logging.handlers.TimedRotatingFileHandler(
-        filename=f'{home}/log/{script_name}.log',
+        filename=log_path,
         when='D',
         backupCount=7,
     )

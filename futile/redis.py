@@ -15,4 +15,4 @@ def make_redis_client() -> redis.StrictRedis:
 def make_pika_client() -> redis.StrictRedis:
     addresses = lookup_service('db.pika')
     ip, port = addresses[0]
-    return redis.StricRedis(ip, port)
+    return redis.StrictRedis(ip, port)

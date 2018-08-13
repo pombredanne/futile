@@ -26,18 +26,23 @@ def init_log(script_name,
     root_logger.handlers = []
     formatter = logging.Formatter('%(asctime)s-%(name)s-%(threadName)s-%(levelname)s - %(message)s - %(filename)s:%(lineno)d')
 
-    # add console logger
-    console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(console_level)
-    root_logger.addHandler(console_handler)
+    def exception_hook(type, value, tb):
+        root_logger.exception('uncaught error %s', value)
+
+    sys.excepthook = exception_hook
 
     # add file logger
     if os.environ.get('DEBUG'):
         home = os.environ.get('HOME')
         log_path = f'{home}/log/{script_name}.log'
+        # add console logger
+        console_handler = logging.StreamHandler(sys.stderr)
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(console_level)
+        root_logger.addHandler(console_handler)
     else:
         log_path = f'/var/log/{script_name}.log'
+
     file_handler = logging.handlers.TimedRotatingFileHandler(
         filename=log_path,
         when='D',

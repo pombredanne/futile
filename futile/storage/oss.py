@@ -4,6 +4,13 @@
 import oss2
 import hashlib
 
+from futile.consul import lookup_service, lookup_kv
 
-def bucket_client(access_key_id, access_key_secret, endpoint, bucket_name):
-    return oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
+
+def make_bucket(bucket_name):
+    access_key = lookup_kv(f'oss/{bucket_name}/access_key').decode()
+    access_secret = lookup_kv(f'oss/{bucket_name}/access_secret').decode()
+    endpoint = lookup_kv(f'oss/{bucket_name}/endpoint').decode()
+    auth = oss2.Auth(access_key, access_secret)
+    return oss2.Bucket(auth, endpoint, bucket_name)
+

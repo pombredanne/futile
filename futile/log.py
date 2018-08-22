@@ -20,14 +20,16 @@ def get_logger(name, level=logging.DEBUG):
 
 def init_log(script_name,
              console_level=logging.INFO,
-             file_level=logging.DEBUG,
+             file_level=logging.INFO,
              additional_handlers=None):
     root_logger = logging.getLogger('')
     root_logger.handlers = []
     formatter = logging.Formatter('%(asctime)s-%(name)s-%(threadName)s-%(levelname)s - %(message)s - %(filename)s:%(lineno)d')
 
     def exception_hook(type, value, tb):
-        root_logger.exception('uncaught error %s', value)
+        import traceback
+        root_logger.exception('uncaught error %s',
+                              ''.join(traceback.format_exception(type, value, tb)))
 
     sys.excepthook = exception_hook
 

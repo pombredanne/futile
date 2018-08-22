@@ -134,10 +134,11 @@ class Worker:
             L.debug('handle message %s', message)
             try:
                 handle(message)
+                acker = partial(ch.basic_ack, delivery_tag=method.delivery_tag)
+                self._client.add_callback_threadsafe(acker)
             except Exception as e:
+                # 如果处理消息出错就不会 ACK
                 L.exception('handle message %s error %s', message, e)
-            acker = partial(ch.basic_ack, delivery_tag=method.delivery_tag)
-            self._client.add_callback_threadsafe(acker)
 
 
 class AmqpConsumer:

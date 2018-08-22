@@ -38,6 +38,7 @@ def after(n):
     """
     def decorate(fn):
         i = 0
+
         @wraps(fn)
         def wrapped(*args, **kwargs):
             nonlocal i
@@ -182,6 +183,18 @@ class lazyproperty:
             value = self.fn(obj)
         setattr(obj, self.fn.__name__, value)
         return value
+
+
+def singleton(class_):
+    instances = {}
+    lock = threading.Lock()
+
+    def get_instance(*args, **kwargs):
+        with lock:
+            if class_ not in instances:
+                instances[class_] = class_(*args, **kwargs)
+            return instances[class_]
+    return get_instance
 
 
 if __name__ == '__main__':

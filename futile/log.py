@@ -24,7 +24,7 @@ def init_log(script_name,
              additional_handlers=None):
     root_logger = logging.getLogger('')
     root_logger.handlers = []
-    formatter = logging.Formatter('%(asctime)s-%(name)s-%(threadName)s-%(levelname)s - %(message)s - %(filename)s:%(lineno)d')
+    formatter = logging.Formatter('%(asctime)s-[%(name)s]-%(threadName)s-%(levelname)s - %(message)s - %(filename)s:%(lineno)d')
 
     def exception_hook(type, value, tb):
         import traceback

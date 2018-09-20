@@ -1,7 +1,9 @@
 import time
+import random
+import grpc
 from typing import List
 from .signal import handle_exit
-from .consul import register_service, deregister_service
+from .consul import register_service, deregister_service, lookup_service
 
 
 def script_init(script_name, *,
@@ -24,7 +26,14 @@ def script_init(script_name, *,
     )
 
 
-def run_service(server, service_name, port):
+def make_client(service_name, service_class):
+    endpoints = lookup_service(service_name)
+    server_address = random.choice(endpoints)
+    channel = grpc.insecure_channel(f'{server_address[0]}:{server_address[1]}')
+    return service_class(channel)
+
+
+def run_service(service_name, server, port):
     """
     初始化一个服务
     """
@@ -39,3 +48,4 @@ def run_service(server, service_name, port):
         register_service(service_name, port=port)
         while True:
             time.sleep(3600)
+

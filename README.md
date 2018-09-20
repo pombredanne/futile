@@ -1,10 +1,9 @@
 futile - a collection of utilty functions
 ======
 
-This is a collection of useful functions in python.
+This is a collection of useful functions in python. This module is Python 3.6+ only
 
-This module is Python 3.6+ only
-
+The name futile is short for yi*f*ei's *util*ities.
 
 Install & Usage
 ------

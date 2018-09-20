@@ -5,8 +5,7 @@
 __all__ = ['chunked', 'chunked_qs', 'compact', 'compact_dict', 'fill', 'find',
            'find_index', 'head', 'first', 'take', 'flatten', 'tail', 'last',
            'unique', 'without', 'count_by', 'all', 'any', 'partition', 'reject',
-           'reduce', 'dict_transform', 'split_ranges', 'filter_keys',
-           'take_keys', 'take_indices']
+           'reduce', 'dict_transform', 'split_ranges', 'take_keys', 'take_indices']
 
 import collections
 import itertools

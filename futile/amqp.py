@@ -4,7 +4,9 @@ import threading
 from queue import Queue, Empty as QueueEmpty, Full as QueueFull
 from functools import partial
 
-import pika
+import pika  # pika is the python client lib for AMQP, not to be confused with pika the kv server
+
+from google.protobuf.text_format import MessageToString
 
 from futile.log import get_logger
 from futile.consul import lookup_kv, lookup_service
@@ -57,6 +59,7 @@ class AmqpClient:
 
 
 class AmqpProducer:
+    # TODO drain the queue when stopping
 
     def __init__(self, name, client):
         """
@@ -99,7 +102,7 @@ class AmqpProducer:
         for _ in range(3):
             try:
                 return self._channel.basic_publish(exchange, routing_key, body,
-                                            properties, mandatory, immediate)
+                                                   properties, mandatory, immediate)
             except pika.exceptions.AMQPChannelError:
                 self._channel = self._client.channel()
 
@@ -110,25 +113,30 @@ class AmqpProducer:
         while True:
             try:
                 meta = self._queue.get_nowait()
+                self._publish(**meta)
             except QueueEmpty:
                 time.sleep(.5)
                 self._client.process_data_events()
-                continue
-            self._publish(**meta)
 
 
 class Worker:
 
     def __init__(self, amqp_client):
         self._client = amqp_client
+        self._should_stop = False
+
+    def stop(self):
+        self._should_stop = True
 
     def work(self, queue, handle):
-        L = get_logger('[Worker]')
+        L = get_logger('Worker')
         while True:
             try:
                 ch, method, props, message = queue.get_nowait()
             except QueueEmpty:
-                L.info('worker got no work to do')
+                if self._should_stop:
+                    break
+                L.debug('worker got no work to do')
                 time.sleep(.5)
                 continue
             L.debug('handle message %s', message)
@@ -138,7 +146,8 @@ class Worker:
                 self._client.add_callback_threadsafe(acker)
             except Exception as e:
                 # 如果处理消息出错就不会 ACK
-                L.exception('handle message %s error %s', message, e)
+                L.exception('handle message %s error %s',
+                            MessageToString(message, as_one_line=True), e)
 
 
 class AmqpConsumer:
@@ -146,67 +155,63 @@ class AmqpConsumer:
     def __init__(self, name, client):
         self._name = name
         self._client = client
-        channel = self._client.channel()
-        self._channel = channel
+        self._channel = self._client.channel()
+        self.L = get_logger(f'pipeline-{self._name}')
+        self._workers = []
+        self._worker_threads = []
 
-    def start_pipeline(self, handle, *,
-                       exchange='', queue='', routing_key='', thread_num=1, **kwargs):
+    def start_pipeline(self, handle, *, queue='', thread_num=1, **kwargs):
         """
         主线程消费消息，worker线程实际处理消息
         """
 
-        L = get_logger(f'[Pipeline-{self._name}]')
-        channel = self._channel
-
-        # TODO support more scenario
-        if exchange == '':
-            # directly consume from a queue
-            amqp_queue = queue
-        else:
-            # decalre a exclusive queue to consume from exchange
-            r = channel.queue_declare(exclusive=True)
-            amqp_queue = r.method.queue
-            channel.queue_bind(exchange=exchange, queue=amqp_queue,
-                               routing_key=routing_key)
-
-        L.info('using queue %s with exchange %s', amqp_queue, exchange)
+        self.L.info('using queue %s', queue)
 
         # thread queue to pass events to workers
         thread_queue = Queue()
 
         # start workers
-        worker = Worker(self._client)
         for i in range(thread_num):
-            L.info('spawn worker %s', i)
+            worker = Worker(self._client)
+            self._workers.append(worker)
+            self.L.info('spawn worker number %s', i)
             worker_thread = threading.Thread(target=worker.work,
                                              name=f'{self._name}-{i}',
                                              args=(thread_queue, handle)
                                              )
+            self._worker_threads.append(worker_thread)
             worker_thread.daemon = True
             worker_thread.start()
-            L.info('worker %s started', i)
+            self.L.info('worker %s started', i)
 
         # on message arrive callback, put message to thread queue
         def on_message(ch, method, props, message):
             thread_queue.put_nowait((ch, method, props, message))
 
+        # retry for 3 times
         for i in range(3):
             try:
-                self._channel.basic_consume(on_message, amqp_queue, **kwargs)
-
+                self._channel.queue_declare(queue=queue)
+                self._channel.basic_consume(on_message, queue, **kwargs)
                 # start to poll messages
-                L.info('start to consume')
+                self.L.info('start consuming...')
                 return self._channel.start_consuming()
             except pika.exceptions.AMQPChannelError:
-                time.sleep(.5 * i)
+                time.sleep(.5 * (2 ** i))
                 self._channel = self._client.channel()
 
     def stop_pipeline(self):
-        return self._channel.stop_consuming()
+        ret = self._channel.stop_consuming()
+        self.L.info('stop consuming, waiting for workers to quit')
+        for worker in self._workers:
+            worker.stop()
+        for thread in self._worker_threads:
+            thread.join()
+        return ret
 
 
 def make_rabbitmq_client():
-    endpoints = lookup_service('mq.rabbit')
+    endpoints = lookup_service('inf.mq.rabbit')
     ip, port = endpoints[0]
     username = lookup_kv('mq.rabbit/username')
     password = lookup_kv('mq.rabbit/password')

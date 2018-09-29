@@ -213,6 +213,6 @@ class AmqpConsumer:
 def make_rabbitmq_client():
     endpoints = lookup_service('inf.mq.rabbit')
     ip, port = endpoints[0]
-    username = lookup_kv('mq.rabbit/username')
-    password = lookup_kv('mq.rabbit/password')
+    username = lookup_kv('inf.mq.rabbit/username')
+    password = lookup_kv('inf.mq.rabbit/password')
     return AmqpClient(ip, port, username, password)

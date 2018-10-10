@@ -1,3 +1,4 @@
+import os
 import json
 import time
 import threading
@@ -9,7 +10,7 @@ import pika  # pika is the python client lib for AMQP, not to be confused with p
 from google.protobuf.text_format import MessageToString
 
 from futile.log import get_logger
-from futile.consul import lookup_kv, lookup_service
+# from futile.consul import lookup_kv, lookup_service
 
 
 # TODO auto reconnect or use connection pooling
@@ -98,7 +99,7 @@ class AmqpProducer:
 
     def _publish(self, exchange, routing_key, body, mandatory=False,
                  immediate=False, **kwargs):
-        properties = pika.BasicProperties(**kwargs)
+        properties = pika.BasicProperties(delivery_mode=2, **kwargs)
         for _ in range(3):
             try:
                 return self._channel.basic_publish(exchange, routing_key, body,
@@ -121,33 +122,40 @@ class AmqpProducer:
 
 class Worker:
 
-    def __init__(self, amqp_client):
+    def __init__(self, amqp_client, message_type=None):
         self._client = amqp_client
         self._should_stop = False
+        self._message_type = message_type
 
     def stop(self):
         self._should_stop = True
 
     def work(self, queue, handle):
-        L = get_logger('Worker')
+        logger = get_logger('Worker')
         while True:
             try:
                 ch, method, props, message = queue.get_nowait()
             except QueueEmpty:
                 if self._should_stop:
+                    logger.info('receive stop signal, no data in queue, stopping...')
                     break
-                L.debug('worker got no work to do')
+                logger.debug('worker got no work to do')
                 time.sleep(.5)
                 continue
-            L.debug('handle message %s', message)
             try:
                 handle(message)
-                acker = partial(ch.basic_ack, delivery_tag=method.delivery_tag)
-                self._client.add_callback_threadsafe(acker)
             except Exception as e:
                 # 如果处理消息出错就不会 ACK
-                L.exception('handle message %s error %s',
-                            MessageToString(message, as_one_line=True), e)
+                if self._message_type is not None:
+                    parsed_message = self._message_type()
+                    parsed_message.ParseFromString(message)
+                    logger.exception('handle message %s error %s',
+                                MessageToString(parsed_message, as_one_line=True), e)
+                else:
+                    logger.exception('handle message %s error %s', message, e)
+            finally:
+                acker = partial(ch.basic_ack, delivery_tag=method.delivery_tag)
+                self._client.add_callback_threadsafe(acker)
 
 
 class AmqpConsumer:
@@ -156,25 +164,25 @@ class AmqpConsumer:
         self._name = name
         self._client = client
         self._channel = self._client.channel()
-        self.L = get_logger(f'pipeline-{self._name}')
+        self.logger = get_logger(f'pipeline-{self._name}')
         self._workers = []
         self._worker_threads = []
 
-    def start_pipeline(self, handle, *, queue='', thread_num=1, **kwargs):
+    def start_pipeline(self, handle, *, message_type=None, queue='', thread_num=1, **kwargs):
         """
         主线程消费消息，worker线程实际处理消息
         """
 
-        self.L.info('using queue %s', queue)
+        self.logger.info('using queue %s', queue)
 
         # thread queue to pass events to workers
         thread_queue = Queue()
 
         # start workers
         for i in range(thread_num):
-            worker = Worker(self._client)
+            worker = Worker(self._client, message_type)
             self._workers.append(worker)
-            self.L.info('spawn worker number %s', i)
+            self.logger.info('spawn worker number %s', i)
             worker_thread = threading.Thread(target=worker.work,
                                              name=f'{self._name}-{i}',
                                              args=(thread_queue, handle)
@@ -182,7 +190,7 @@ class AmqpConsumer:
             self._worker_threads.append(worker_thread)
             worker_thread.daemon = True
             worker_thread.start()
-            self.L.info('worker %s started', i)
+            self.logger.info('worker %s started', i)
 
         # on message arrive callback, put message to thread queue
         def on_message(ch, method, props, message):
@@ -191,18 +199,19 @@ class AmqpConsumer:
         # retry for 3 times
         for i in range(3):
             try:
-                self._channel.queue_declare(queue=queue)
+                self._channel.queue_declare(queue=queue, durable=True)
                 self._channel.basic_consume(on_message, queue, **kwargs)
                 # start to poll messages
-                self.L.info('start consuming...')
+                self.logger.info('start consuming...')
                 return self._channel.start_consuming()
-            except pika.exceptions.AMQPChannelError:
+            except Exception as e:
+                self.logger.exception('amqp connection error, %s', e)
                 time.sleep(.5 * (2 ** i))
                 self._channel = self._client.channel()
 
     def stop_pipeline(self):
         ret = self._channel.stop_consuming()
-        self.L.info('stop consuming, waiting for workers to quit')
+        self.logger.info('stop consuming, waiting for workers to quit')
         for worker in self._workers:
             worker.stop()
         for thread in self._worker_threads:
@@ -211,8 +220,12 @@ class AmqpConsumer:
 
 
 def make_rabbitmq_client():
-    endpoints = lookup_service('inf.mq.rabbit')
-    ip, port = endpoints[0]
-    username = lookup_kv('inf.mq.rabbit/username')
-    password = lookup_kv('inf.mq.rabbit/password')
+    # endpoints = lookup_service('inf.mq.rabbit')
+    # ip, port = endpoints[0]
+    # username = lookup_kv('inf.mq.rabbit/username')
+    # password = lookup_kv('inf.mq.rabbit/password')
+    ip = os.environ.get('RABBITMQ_IP')
+    port = os.environ.get('RABBITMQ_PORT')
+    username = os.environ.get('RABBITMQ_USERNAME')
+    password = os.environ.get('RABBITMQ_PASSWORD')
     return AmqpClient(ip, port, username, password)

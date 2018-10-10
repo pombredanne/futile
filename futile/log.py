@@ -2,12 +2,42 @@ import os
 import sys
 import logging
 import logging.handlers
+import threading
+
+
+def setup_thread_excepthook():
+    """
+    Workaround for `sys.excepthook` thread bug from:
+    http://bugs.python.org/issue1230540
+
+    Call once from the main thread before creating any threads.
+    """
+
+    init_original = threading.Thread.__init__
+
+    def init(self, *args, **kwargs):
+
+        init_original(self, *args, **kwargs)
+        run_original = self.run
+
+        def run_with_except_hook(*args2, **kwargs2):
+            try:
+                run_original(*args2, **kwargs2)
+            except Exception:
+                sys.excepthook(*sys.exc_info())
+
+        self.run = run_with_except_hook
+
+    threading.Thread.__init__ = init
 
 
 def get_logger(name, level=logging.DEBUG):
     """
     生成一个logger，日志会交给上层的logger处理
     """
+    if isinstance(level, str):
+        level = getattr(logging, level.upper())
+
     logger = logging.getLogger(name)
     logger.propagate = True
     if not logger.handlers:
@@ -22,6 +52,13 @@ def init_log(script_name,
              console_level=logging.INFO,
              file_level=logging.INFO,
              additional_handlers=None):
+
+    if isinstance(console_level, str):
+        console_level = getattr(logging, console_level.upper())
+
+    if isinstance(file_level, str):
+        file_level = getattr(logging, file_level.upper())
+
     root_logger = logging.getLogger('')
     root_logger.handlers = []
     formatter = logging.Formatter('%(asctime)s-[%(name)s]-%(threadName)s-%(levelname)s - %(message)s - %(filename)s:%(lineno)d')
@@ -32,6 +69,7 @@ def init_log(script_name,
                               ''.join(traceback.format_exception(type, value, tb)))
 
     sys.excepthook = exception_hook
+    setup_thread_excepthook()
 
     # add file logger
     if os.environ.get('DEBUG'):

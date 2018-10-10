@@ -66,7 +66,7 @@ class LruCache(Cache):
     The Clock algorithm is not kept strictly to improve performance, e.g. to
     allow get() and invalidate() to work without acquiring the lock.
     """
-    def __init__(self, size):
+    def __init__(self, size, delete_callback=None):
         size = int(size)
         if size < 1:
             raise ValueError('size must be >0')
@@ -82,6 +82,7 @@ class LruCache(Cache):
         self.misses = 0
         self.lookups = 0
         self.clear()
+        self.delete_callback = delete_callback
 
     def clear(self):
         """Remove all entries from the cache"""

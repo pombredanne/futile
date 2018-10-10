@@ -191,64 +191,69 @@ def normalize_url(url: str, remove_params=None, keep_params=None,
     'http://google.com/?a=a'
     >>> normalize_url('http://google.com/a/b/c/d/e')
     'http://google.com/a/b/c/d/e'
+    >>> normalize_url('http://weaweadsf:asdfasdfasdf')
+    'http://weaweadsf:asdfasdfasdf'
     """
+    try:
+        u = urlsplit(url)
 
-    u = urlsplit(url)
+        # 1. scheme
+        scheme = u.scheme.lower()
+        if not scheme:
+            scheme = 'http'
 
-    # 1. scheme
-    scheme = u.scheme.lower()
-    if not scheme:
-        scheme = 'http'
+        # 2. netloc
+        hostname = (u.hostname or '').lower()
+        if hostname and hostname[-1] == '.':
+            hostname = hostname[:-1]  # remove ending dot
+        # python stdlib may throw exception here when port is not a number
+        if u.port == 80 and scheme == 'http' or u.port == 443 and scheme == 'https':
+            port = ''
+        else:
+            port = u.port
+        netloc = hostname
+        if u.username:
+            netloc = f"{u.username or ''}:{u.password or ''}@{netloc}"
+        if port:
+            netloc = f'{netloc}:{port}'
 
-    # 2. netloc
-    hostname = (u.hostname or '').lower()
-    if hostname and hostname[-1] == '.':
-        hostname = hostname[:-1]  # remove ending dot
-    if u.port == 80 and scheme == 'http' or u.port == 443 and scheme == 'https':
-        port = ''
-    else:
-        port = u.port
-    netloc = hostname
-    if u.username:
-        netloc = f"{u.username or ''}:{u.password or ''}@{netloc}"
-    if port:
-        netloc = f'{netloc}:{port}'
+        # 3. path
+        path_parts = u.path.split('/')
+        new_path_parts = []
+        for i, p in enumerate(path_parts):
+            if p == '.':
+                continue
+            elif p == '..' and len(new_path_parts) > 1:
+                new_path_parts.pop()
+            elif p != '' or i == 0 or i == len(path_parts) - 1:
+                new_path_parts.append(p)
 
-    # 3. path
-    path_parts = u.path.split('/')
-    new_path_parts = []
-    for i, p in enumerate(path_parts):
-        if p == '.':
-            continue
-        elif p == '..' and len(new_path_parts) > 1:
-            new_path_parts.pop()
-        elif p != '' or i == 0 or i == len(path_parts) - 1:
-            new_path_parts.append(p)
+        def fix_quote(s):
+            return urlquote(urlunquote(s), safe=":=~+!$,;'@()*[]") # NOTE no /?&#
+        new_path_parts = map(fix_quote, new_path_parts)
+        path = '/'.join(new_path_parts)
+        if not path:
+            path = '/'
 
-    def fix_quote(s):
-        return urlquote(urlunquote(s), safe=":=~+!$,;'@()*[]") # NOTE no /?&#
-    new_path_parts = map(fix_quote, new_path_parts)
-    path = '/'.join(new_path_parts)
-    if not path:
-        path = '/'
+        # 4. query
+        qsl = parse_qsl(u.query)
+        qsl.sort()
+        if remove_params:
+            qsl = [qs for qs in qsl if qs[0] not in remove_params]
+        if keep_params:
+            qsl = [qs for qs in qsl if qs[0] in keep_params]
+        qsl = [(urlunquote(qs[0]), urlunquote(qs[1])) for qs in qsl]
+        query = urlencode(qsl, safe=":=~+!$,;'@()*[]")
 
-    # query
-    qsl = parse_qsl(u.query)
-    qsl.sort()
-    if remove_params:
-        qsl = [qs for qs in qsl if qs[0] not in remove_params]
-    if keep_params:
-        qsl = [qs for qs in qsl if qs[0] in keep_params]
-    qsl = [(urlunquote(qs[0]), urlunquote(qs[1])) for qs in qsl]
-    query = urlencode(qsl, safe=":=~+!$,;'@()*[]")
+        # 5. fragment
+        if remove_fragment:
+            fragment = ''
+        else:
+            fragment = u.fragment
 
-    # fragment
-    if remove_fragment:
-        fragment = ''
-    else:
-        fragment = u.fragment
-
-    return urlunsplit([scheme, netloc, path, query, fragment])
+        return urlunsplit([scheme, netloc, path, query, fragment])
+    except Exception as e:
+        raise Exception('url=%s normalize failed' % url)
 
 
 if __name__ == '__main__':

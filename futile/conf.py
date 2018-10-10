@@ -5,6 +5,7 @@ import yaml
 import json
 
 from .array import merge_dict
+from .log import get_logger
 
 __all__ = ['Conf', 'get_conf']
 
@@ -31,7 +32,7 @@ class Conf(dict):
     def _read_file(cls, conf_file: str):
         conf_path = os.environ.get('CONFPATH')
         if conf_path is None:
-            raise IOError("CONFPATH is not set!")
+            conf_path = '.'
         abspath = os.path.join(conf_path, conf_file)
         conf_lines = []
         with open(abspath, 'r', encoding='utf-8') as f:

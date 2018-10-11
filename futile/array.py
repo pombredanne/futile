@@ -2,10 +2,33 @@
 # coding=utf-8
 
 
-__all__ = ['chunked', 'chunked_qs', 'compact', 'compact_dict', 'fill', 'find',
-           'find_index', 'head', 'first', 'take', 'flatten', 'tail', 'last',
-           'unique', 'without', 'count_by', 'all', 'any', 'partition', 'reject',
-           'reduce', 'dict_transform', 'split_ranges', 'take_keys', 'take_indices']
+__all__ = [
+    "chunked",
+    "chunked_qs",
+    "compact",
+    "compact_dict",
+    "fill",
+    "find",
+    "find_index",
+    "head",
+    "first",
+    "take",
+    "flatten",
+    "tail",
+    "last",
+    "unique",
+    "without",
+    "count_by",
+    "all",
+    "any",
+    "partition",
+    "reject",
+    "reduce",
+    "dict_transform",
+    "split_ranges",
+    "take_keys",
+    "take_indices",
+]
 
 import collections
 import itertools
@@ -29,9 +52,9 @@ def chunked(chunk_size, iterable, len_func=len):
     >>> list(chunked((i for i in range(4)), 2))
     [[0, 1], [2, 3]]
     """
-    if hasattr(iterable, '__getitem__'):
+    if hasattr(iterable, "__getitem__"):
         for i in range(0, len_func(iterable), chunk_size):
-            yield iterable[i: i + chunk_size]
+            yield iterable[i : i + chunk_size]
     else:  # iterable
         chunk = []
         i = 0
@@ -46,7 +69,7 @@ def chunked(chunk_size, iterable, len_func=len):
             yield chunk  # yield the last uncomplete chunk
 
 
-def chunked_qs(chunk_size, query_set,):
+def chunked_qs(chunk_size, query_set):
     """
     Django QuerySet 切片
     """
@@ -111,7 +134,7 @@ def fill(sequence, value, start=0, stop=None):
             yield sequence[i]
 
 
-def find(sequence, key, *, default=None, reverse=False, errors='ignore'):
+def find(sequence, key, *, default=None, reverse=False, errors="ignore"):
     """
     find specific element in an array by `key` function
 
@@ -125,14 +148,14 @@ def find(sequence, key, *, default=None, reverse=False, errors='ignore'):
             if key(element):
                 return element
         except Exception:
-            if errors == 'ignore':
+            if errors == "ignore":
                 continue
             else:
                 raise
     return default
 
 
-def find_index(iterable, key, reverse=False, errors='ignore'):
+def find_index(iterable, key, reverse=False, errors="ignore"):
     """
     >>> find_index([{'a': 'b'}], key=lambda x: x['a'] == 'b')
     0
@@ -146,7 +169,7 @@ def find_index(iterable, key, reverse=False, errors='ignore'):
             if key(element):
                 return i
         except Exception:
-            if errors == 'ignore':
+            if errors == "ignore":
                 continue
             else:
                 raise
@@ -161,7 +184,7 @@ def head(iterable):
     """
     # for django queryset using slicing is significantly faster than iterating to
     # get the first element
-    if hasattr(iterable, '__getitem__'):
+    if hasattr(iterable, "__getitem__"):
         try:
             return iterable[0]
         except IndexError:
@@ -184,7 +207,7 @@ def flatten(iterable):
     ['hello']
     """
     for element in iterable:
-        if hasattr(element, '__iter__') and not isinstance(element, (dict, str, bytes)):
+        if hasattr(element, "__iter__") and not isinstance(element, (dict, str, bytes)):
             yield from flatten(element)
         else:
             yield element
@@ -322,7 +345,9 @@ def split_ranges(start, stop, count=None, step=None):
     if count is None:
         if isinstance(step, timedelta):
             time_range = stop - start
-            time_in_ms = time_range.microseconds + 1e6 * (time_range.seconds + 86400 * time_range.days)
+            time_in_ms = time_range.microseconds + 1e6 * (
+                time_range.seconds + 86400 * time_range.days
+            )
             step_in_ms = step.microseconds + 1e6 * (step.seconds + 86400 * step.days)
             count = time_in_ms / step_in_ms
         else:
@@ -333,7 +358,7 @@ def split_ranges(start, stop, count=None, step=None):
     if step is None:
         step = (stop - start) / count
 
-    return [(start+i*step, start+(i+1)*step) for i in range(int(count))]
+    return [(start + i * step, start + (i + 1) * step) for i in range(int(count))]
 
 
 def take_indices(l, indices=None, default=None):
@@ -354,6 +379,13 @@ def group_by_attr(l, attr):
     return ret
 
 
-if __name__ == '__main__':
+def safe_zip(l1, l2):
+    if len(l1) != len(l2):
+        raise ValueError("zip list lengths are not equal %d != %d" % (l1, l2))
+    return zip(l1, l2)
+
+
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

@@ -228,7 +228,7 @@ last = tail
 def take(iterable, n):
     """
     >>> list(take(range(5), 1))
-    0
+    [0]
     """
     for i, e in enumerate(iterable):
         if i < n:
@@ -251,7 +251,7 @@ def unique(iterable, key=lambda x: x):
 
 def without(iterable, values, key=lambda x: x):
     """
-    >>> without([1, 2, 3], 2)
+    >>> list(without([1, 2, 3], 2))
     [1, 3]
     """
     if not isinstance(values, (list, set, tuple)):
@@ -363,12 +363,16 @@ def split_ranges(start, stop, count=None, step=None):
 
 def take_indices(l, indices=None, default=None):
     """
-    >>> take_indices([1, 2, 3], [0, 2, 5])
+    >>> list(take_indices([1, 2, 3], [0, 2, 5]))
     [1, 3, None]
     """
-    indices = indices or []
+    if indices is None:
+        return
     for idx in indices:
-        yield l[idx]
+        try:
+            yield l[idx]
+        except IndexError:
+            yield default
 
 
 def group_by_attr(l, attr):
@@ -383,6 +387,18 @@ def safe_zip(l1, l2):
     if len(l1) != len(l2):
         raise ValueError("zip list lengths are not equal %d != %d" % (l1, l2))
     return zip(l1, l2)
+
+
+def filter_by(l, bools, falsy=False):
+    """
+    >>> list(filter_by([1,2,3], [True, False, True]))
+    [1, 3]
+    >>> list(filter_by([1,2,3], [True, False, True], falsy=True))
+    [2]
+    """
+    for a, b in safe_zip(l, bools):
+        if not falsy and b or falsy and not b:
+            yield a
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 
 __all__ = ['depack_jsonp', 'json_api', 'jsonp_api', 'mget_url_param',
            'get_url_param', 'update_url_param', 'parse_qs_dict',
-           'build_url', 'get_domain', 'get_top_domain', 'normalize_url']
+           'build_url', 'get_domain', 'get_main_domain', 'normalize_url']
 
 import re
 import os
@@ -138,19 +138,19 @@ def get_domain(url: str) -> str:
 
 def get_main_domain(url: str) -> str:
     """
-    >>> get_top_domain('http://user:pass@www.google.com:8080')
+    >>> get_main_domain('http://user:pass@www.google.com:8080')
     'google.com'
-    >>> get_top_domain('http://www.sina.com.cn')
+    >>> get_main_domain('http://www.sina.com.cn')
     'sina.com.cn'
-    >>> get_top_domain('http://bbc.co.uk')
+    >>> get_main_domain('http://bbc.co.uk')
     'bbc.co.uk'
-    >>> get_top_domain('http://mail.cs.buaa.edu.cn')
+    >>> get_main_domain('http://mail.cs.buaa.edu.cn')
     'buaa.edu.cn'
-    >>> get_top_domain('http://t.cn')
+    >>> get_main_domain('http://t.cn')
     't.cn'
-    >>> get_top_domain('http://www.gov.cn')  # 这里注册的域名是 www
+    >>> get_main_domain('http://www.gov.cn')  # 这里注册的域名是 www
     'www.gov.cn'
-    >>> get_top_domain('htttp://com.cn')  # 实际上这是不合法的 url，因为 com.cn 是顶级域名
+    >>> get_main_domain('http://com.cn')  # 实际上这是不合法的 url，因为 com.cn 是顶级域名
     'com.cn'
     """
     domain = get_domain(url)
@@ -164,8 +164,8 @@ def get_main_domain(url: str) -> str:
     return domain
 
 
-def normalize_url(url: str, remove_params=None, keep_params=None,
-                  remove_fragment=True) -> str:
+def normalize_url(url: str, *, drop_params=None, keep_params=None,
+                  drop_fragment=True) -> str:
     """
     >>> normalize_url('http://google.com')
     'http://google.com/'
@@ -229,7 +229,7 @@ def normalize_url(url: str, remove_params=None, keep_params=None,
                 new_path_parts.append(p)
 
         def fix_quote(s):
-            return urlquote(urlunquote(s), safe=":=~+!$,;'@()*[]") # NOTE no /?&#
+            return urlquote(urlunquote(s), safe=":=~+!$,;'@()*[]")  # NOTE no /?&#
         new_path_parts = map(fix_quote, new_path_parts)
         path = '/'.join(new_path_parts)
         if not path:
@@ -238,15 +238,15 @@ def normalize_url(url: str, remove_params=None, keep_params=None,
         # 4. query
         qsl = parse_qsl(u.query)
         qsl.sort()
-        if remove_params:
-            qsl = [qs for qs in qsl if qs[0] not in remove_params]
-        if keep_params:
+        if drop_params is not None:
+            qsl = [qs for qs in qsl if qs[0] not in drop_params]
+        if keep_params is not None:  # empty means keep nothing at all
             qsl = [qs for qs in qsl if qs[0] in keep_params]
         qsl = [(urlunquote(qs[0]), urlunquote(qs[1])) for qs in qsl]
         query = urlencode(qsl, safe=":=~+!$,;'@()*[]")
 
         # 5. fragment
-        if remove_fragment:
+        if drop_fragment:
             fragment = ''
         else:
             fragment = u.fragment

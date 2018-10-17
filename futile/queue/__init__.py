@@ -11,5 +11,4 @@ def queue_mget(q, n, timeout=None):
     return result
 
 
-
 # TODO select on queues

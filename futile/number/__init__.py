@@ -6,7 +6,7 @@ from math import ceil
 from ctypes import c_longlong, c_ulonglong
 
 
-nan = float('nan')
+nan = float("nan")
 
 
 def to_uint64(i):
@@ -45,17 +45,17 @@ class BitVector:
 
     def __init__(self, size: int) -> None:
         self._size = size
-        self.bits = array.array('Q')
+        self.bits = array.array("Q")
         self.itemsize = self.bits.itemsize * 8
         for _ in range(ceil(size / self.itemsize)):
             self.bits.append(0)
 
     def set_bit(self, i: int) -> None:
-        assert i < 0 or i >= self._size, '%d not in range' % (i)
-        self.bits[i // self.itemsize] |= (1 << (i % self.itemsize))
+        assert i < 0 or i >= self._size, "%d not in range" % (i)
+        self.bits[i // self.itemsize] |= 1 << (i % self.itemsize)
 
     def is_set(self, i: int) -> int:
-        assert i < 0 or i >= self._size, '%d not in range' % (i)
+        assert i < 0 or i >= self._size, "%d not in range" % (i)
         return self.bits[i // self.itemsize] & (1 << (i % self.itemsize))
 
 
@@ -125,8 +125,8 @@ def clamp(n, small, large):
     return sorted([n, small, large])[1]
 
 
-def parse_fuzzy_number(s, ignore=',', bases=None):
-    '''
+def parse_fuzzy_number(s, ignore=",", bases=None):
+    """
     >>> parse_fuzzy_number('一万')
     10000.0
     >>> parse_fuzzy_number('12k')
@@ -141,14 +141,37 @@ def parse_fuzzy_number(s, ignore=',', bases=None):
     35000.0
     >>> parse_fuzzy_number('hella')
     nan
-    '''
+    """
     if bases is None:
-        bases = {'k': 1000, 'w': 10000, 'm': 1000000, 'g': 1000000000, 'b': 1000000000,
-                 'hundred': 100, 'thousand': 1000, 'million': 1000000, 'billion': 1000000000,
-                 '百': 100, '千': 1000, '万': 10000, '亿': 100000000,
-                 }
-    zh2num = {'负': '-', '〇': '0', '零': '0', '一': '1', '二': '2', '三': '3',
-              '四': '4', '五': '5', '六': '6', '七': '7', '八': '8', '九': '9'}
+        bases = {
+            "k": 1000,
+            "w": 10000,
+            "m": 1000000,
+            "g": 1000000000,
+            "b": 1000000000,
+            "hundred": 100,
+            "thousand": 1000,
+            "million": 1000000,
+            "billion": 1000000000,
+            "百": 100,
+            "千": 1000,
+            "万": 10000,
+            "亿": 100000000,
+        }
+    zh2num = {
+        "负": "-",
+        "〇": "0",
+        "零": "0",
+        "一": "1",
+        "二": "2",
+        "三": "3",
+        "四": "4",
+        "五": "5",
+        "六": "6",
+        "七": "7",
+        "八": "8",
+        "九": "9",
+    }
 
     if not s:
         return 0
@@ -156,19 +179,20 @@ def parse_fuzzy_number(s, ignore=',', bases=None):
     for zh, num in zh2num.items():
         s = s.replace(zh, num)
     for ch in ignore:
-        s = s.replace(ch, '')
+        s = s.replace(ch, "")
     s = s.strip()
     if not s:
         return 0
-    pattern = r'(-?[\d\.]+)\s*(%s)?' % r'|'.join(bases.keys())
+    pattern = r"(-?[\d\.]+)\s*(%s)?" % r"|".join(bases.keys())
     try:
         num, base = re.search(pattern, s, re.I).groups()
         return float(num) * bases.get(base, 1)
     except Exception as e:
-        return float('nan')
-    return float('nan')
+        return float("nan")
+    return float("nan")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

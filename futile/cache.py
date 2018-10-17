@@ -18,7 +18,6 @@ _DEFAULT_TIMEOUT = 2 ** 60
 
 
 class Cache(ABC):
-
     @abstractmethod
     def clear(self):
         """Remove all entries from the cache"""
@@ -66,10 +65,11 @@ class LruCache(Cache):
     The Clock algorithm is not kept strictly to improve performance, e.g. to
     allow get() and invalidate() to work without acquiring the lock.
     """
+
     def __init__(self, size, delete_callback=None):
         size = int(size)
         if size < 1:
-            raise ValueError('size must be >0')
+            raise ValueError("size must be >0")
         self.size = size
         self.lock = threading.Lock()
         self.hand = 0
@@ -185,11 +185,12 @@ class ExpiringLruCache(Cache):
     The Clock algorithm is not kept strictly to improve performance, e.g. to
     allow get() and invalidate() to work without acquiring the lock.
     """
+
     def __init__(self, size, default_timeout=_DEFAULT_TIMEOUT):
         self.default_timeout = default_timeout
         size = int(size)
         if size < 1:
-            raise ValueError('size must be >0')
+            raise ValueError("size must be >0")
         self.size = size
         self.lock = threading.Lock()
         self.hand = 0
@@ -318,11 +319,14 @@ class lru_cache(object):
     timeout parameter specifies after how many seconds a cached entry should
     be considered invalid.
     """
-    def __init__(self,
-                 maxsize,
-                 cache=None,  # cache is an arg to serve tests
-                 timeout=None,
-                 ignore_unhashable_args=False):
+
+    def __init__(
+        self,
+        maxsize,
+        cache=None,  # cache is an arg to serve tests
+        timeout=None,
+        ignore_unhashable_args=False,
+    ):
         if cache is None:
             if maxsize is None:
                 cache = UnboundedCache()
@@ -357,9 +361,9 @@ class lru_cache(object):
             if value is not source:
                 setattr(target, attr, value)
 
-        _maybe_copy(func, cached_wrapper, '__module__')
-        _maybe_copy(func, cached_wrapper, '__name__')
-        _maybe_copy(func, cached_wrapper, '__doc__')
+        _maybe_copy(func, cached_wrapper, "__module__")
+        _maybe_copy(func, cached_wrapper, "__name__")
+        _maybe_copy(func, cached_wrapper, "__doc__")
         cached_wrapper._cache = cache
         return cached_wrapper
 
@@ -367,6 +371,7 @@ class lru_cache(object):
 class CacheMaker(object):
     """Generates decorators that can be cleared later
     """
+
     def __init__(self, maxsize=None, timeout=_DEFAULT_TIMEOUT):
         """Create cache decorator factory.
 
@@ -442,4 +447,3 @@ class CacheMaker(object):
 
         for name in names:
             self._cache[name].clear()
-

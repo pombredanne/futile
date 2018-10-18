@@ -10,7 +10,7 @@ __all__ = ['read_list_from_file', 'write_list_to_file', 'read_list_from_csv',
 import os
 import csv
 import threading
-from .string import ensure_bytes, ensure_str
+from .strings import ensure_bytes, ensure_str
 
 class ThreadSafeWriter:
     '''

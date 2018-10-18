@@ -11,7 +11,7 @@ import os
 import json
 import requests
 from ..file import read_list_from_file
-from ..string import ensure_str
+from ..strings import ensure_str
 from urllib.parse import quote as urlquote, unquote as urlunquote, urlsplit, \
         urlunsplit, urlencode, parse_qsl
 

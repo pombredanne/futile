@@ -10,7 +10,7 @@ __all__ = ['try_decode']
 
 import re
 import sys
-from .string import ensure_str
+from .strings import ensure_str
 try:
     import cchardet as chardet
 except ImportError:

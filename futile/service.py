@@ -8,8 +8,8 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from typing import List, Any
 
 from .log import get_logger, init_log
-from .string import pascal_case
-from .signal import handle_exit
+from .strings import pascal_case
+from .signals import handle_exit
 from .consul import register_service, deregister_service, lookup_service
 from .cache import ExpiringLruCache
 from .redis import make_redis_client

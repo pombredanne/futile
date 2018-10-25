@@ -187,7 +187,8 @@ def make_client2(service_name, *, conf=None, **kwargs):
     if conf is not None:
         ip = conf.get(service_name + ".ip")
         port = conf.get(service_name + ".port")
-        return GrpcClient(service_name, ip=ip, port=port, **kwargs)
+        if ip and port:
+            return GrpcClient(service_name, ip=ip, port=port, **kwargs)
 
     return GrpcClient(service_name, **kwargs)
 
@@ -234,7 +235,7 @@ def run_service2(
     *,
     server_type: str = "thread",
     max_workers: int = 4,
-    port: int = 6000,
+    port: int = None,
     bind_ip: str = "[::]",
     should_register: bool = False,
     should_timing: bool = False,
@@ -278,6 +279,10 @@ def run_service2(
     if conf is not None:
         bind_ip = conf.get(f"{service_name}.ip")
         port = conf.get(f"{service_name}.port")
+
+    if port is None:
+        port = random.randint(5000, 6000)
+
     server.add_insecure_port(f"{bind_ip}:{port}")
 
     # exit handler

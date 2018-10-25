@@ -68,6 +68,7 @@ def init_log(
     console_level=logging.INFO,
     file_level=logging.INFO,
     additional_handlers=None,
+    log_to_file=False,
 ):
 
     if isinstance(console_level, str):
@@ -92,24 +93,25 @@ def init_log(
     sys.excepthook = exception_hook
     setup_thread_excepthook()
 
-    # add file logger
-    if os.environ.get("DEBUG"):
-        home = os.environ.get("HOME")
-        log_path = f"{home}/log/{script_name}.log"
-        # add console logger
-        console_handler = logging.StreamHandler(sys.stderr)
-        console_handler.setFormatter(formatter)
-        console_handler.setLevel(console_level)
-        root_logger.addHandler(console_handler)
-    else:
-        log_path = f"/var/log/{script_name}.log"
+    if log_to_file:
+        # add file logger
+        if os.environ.get("DEBUG"):
+            home = os.environ.get("HOME")
+            log_path = f"{home}/log/{script_name}.log"
+            # add console logger
+            console_handler = logging.StreamHandler(sys.stderr)
+            console_handler.setFormatter(formatter)
+            console_handler.setLevel(console_level)
+            root_logger.addHandler(console_handler)
+        else:
+            log_path = f"/var/log/{script_name}.log"
 
-    file_handler = logging.handlers.TimedRotatingFileHandler(
-        filename=log_path, when="D", backupCount=7
-    )
-    file_handler.setFormatter(formatter)
-    file_handler.setLevel(file_level)
-    root_logger.addHandler(file_handler)
+        file_handler = logging.handlers.TimedRotatingFileHandler(
+            filename=log_path, when="D", backupCount=3
+        )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(file_level)
+        root_logger.addHandler(file_handler)
 
     if additional_handlers:
         for handler in additional_handlers:

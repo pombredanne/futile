@@ -93,16 +93,18 @@ def init_log(
     sys.excepthook = exception_hook
     setup_thread_excepthook()
 
+    # always log to screen
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(console_level)
+    root_logger.addHandler(console_handler)
+
     if log_to_file:
         # add file logger
         if os.environ.get("DEBUG"):
             home = os.environ.get("HOME")
             log_path = f"{home}/log/{script_name}.log"
             # add console logger
-            console_handler = logging.StreamHandler(sys.stderr)
-            console_handler.setFormatter(formatter)
-            console_handler.setLevel(console_level)
-            root_logger.addHandler(console_handler)
         else:
             log_path = f"/var/log/{script_name}.log"
 

@@ -5,7 +5,7 @@ try:
     import cchardet as chardet
 except ImportError:
     import chardet
-from ..array import compact
+from .array import compact
 
 
 def expand(raw):
@@ -85,17 +85,17 @@ def snake_case(s):
 
 def dash_case(s):
     """
-    >>> snake_case('fooBar')
+    >>> dash_case('fooBar')
     'foo-bar'
-    >>> snake_case('foo_bar')
+    >>> dash_case('foo_bar')
     'foo-bar'
-    >>> snake_case('foo-bar')
+    >>> dash_case('foo-bar')
     'foo-bar'
-    >>> snake_case('FooBar')
+    >>> dash_case('FooBar')
     'foo-bar'
-    >>> snake_case('Foo-Bar')
+    >>> dash_case('Foo-Bar')
     'foo-bar'
-    >>> snake_case('foo bar')
+    >>> dash_case('foo bar')
     'foo-bar'
     """
     if s:
@@ -187,7 +187,7 @@ def unicode_strip(s) -> str:
     >>> unicode_strip('')
     ''
     >>> unicode_strip(u'　 \x0ba\ufeff ')
-    u'a'
+    'a'
     '''
     if not s:
         return ''

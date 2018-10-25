@@ -79,7 +79,7 @@ def init_log(
     root_logger = logging.getLogger("")
     root_logger.handlers = []
     formatter = logging.Formatter(
-        "%(asctime)s-[%(name)s]-%(threadName)s-%(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+        "%(asctime)s %(process)d-%(threadName)s [%(name)s]-%(levelname)s - %(message)s - %(filename)s:%(lineno)d"
     )
 
     def exception_hook(type, value, tb):

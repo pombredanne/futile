@@ -24,10 +24,10 @@ __all__ = [
     "partition",
     "reject",
     "reduce",
-    "dict_transform",
     "split_ranges",
-    "take_keys",
     "take_indices",
+    "safe_zip",
+    "filter_by",
 ]
 
 import collections
@@ -383,10 +383,13 @@ def group_by_attr(l, attr):
     return ret
 
 
-def safe_zip(l1, l2):
-    if len(l1) != len(l2):
-        raise ValueError("zip list lengths are not equal %d != %d" % (l1, l2))
-    return zip(l1, l2)
+def safe_zip(*lists):
+    for l in lists:
+        if len(l) != len(lists[0]):
+            raise ValueError(
+                "zip list lengths are not equal %s" % [len(l) for l in lists]
+            )
+    return zip(*lists)
 
 
 def filter_by(l, bools, falsy=False):

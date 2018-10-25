@@ -70,3 +70,10 @@ def filter_keys(d, keys=None):
     """
     keys = set(keys or [])
     return {k: v for k, v in d.items() if k in keys}
+
+def deep_merge(*dicts):
+    ret = {}
+    for d in dicts:
+        pass
+
+

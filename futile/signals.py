@@ -33,14 +33,16 @@ def handle_exit(callback=None, append=True, sig=signal.SIGTERM):
     old_handler = signal.signal(sig, _sigterm_handler)
     if (old_handler != signal.SIG_DFL) and (old_handler != _sigterm_handler):
         if not append:
-            raise RuntimeError("there is already a handler registered for "
-                               "SIGTERM: %r" % old_handler)
+            raise RuntimeError(
+                "there is already a handler registered for " "SIGTERM: %r" % old_handler
+            )
 
         def handler(signum, frame):
             try:
                 _sigterm_handler(signum, frame)
             finally:
                 old_handler(signum, frame)
+
         signal.signal(signal.SIGTERM, handler)
 
     if _sigterm_handler._enter_context:
@@ -65,7 +67,7 @@ def handle_exit(callback=None, append=True, sig=signal.SIGTERM):
             callback()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # ===============================================================
     # --- test suite
     # ===============================================================
@@ -74,7 +76,6 @@ if __name__ == '__main__':
     import os
 
     class TestOnExit(unittest.TestCase):
-
         def setUp(self):
             # reset signal handlers
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
@@ -114,20 +115,20 @@ if __name__ == '__main__':
         def test_sigterm_old(self):
             # make sure the old handler gets executed
             queue = []
-            signal.signal(signal.SIGTERM, lambda s, f: queue.append('old'))
-            with handle_exit(lambda: queue.append('new'), append=True):
+            signal.signal(signal.SIGTERM, lambda s, f: queue.append("old"))
+            with handle_exit(lambda: queue.append("new"), append=True):
                 os.kill(os.getpid(), signal.SIGTERM)
             self.flag = True
-            self.assertEqual(queue, ['old', 'new'])
+            self.assertEqual(queue, ["old", "new"])
 
         def test_sigint_old(self):
             # make sure the old handler gets executed
             queue = []
-            signal.signal(signal.SIGINT, lambda s, f: queue.append('old'))
-            with handle_exit(lambda: queue.append('new'), append=True):
+            signal.signal(signal.SIGINT, lambda s, f: queue.append("old"))
+            with handle_exit(lambda: queue.append("new"), append=True):
                 os.kill(os.getpid(), signal.SIGINT)
             self.flag = True
-            self.assertEqual(queue, ['old', 'new'])
+            self.assertEqual(queue, ["old", "new"])
 
         def test_no_append(self):
             # make sure we can't use the context manager if there's
@@ -155,4 +156,3 @@ if __name__ == '__main__':
                 self.fail("exception not raised")
 
     unittest.main()
-

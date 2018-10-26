@@ -224,8 +224,8 @@ class AmqpConsumer:
         self.logger.info("stop consuming, waiting for workers to quit")
         for worker in self._workers:
             worker.stop()
-        for thread in self._worker_threads:
-            thread.join()
+        # for thread in self._worker_threads:
+        #     thread.join()
         return ret
 
 

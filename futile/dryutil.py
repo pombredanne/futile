@@ -7,6 +7,7 @@ DRY_RUN = False
 L = get_logger('[Dry Util]')
 
 
+# DEPRECATED
 def save(obj, *, dry_run=False):
     """
     保存对象
@@ -17,6 +18,7 @@ def save(obj, *, dry_run=False):
         obj.save()
 
 
+# DEPRECATED
 def update(obj, *, dry_run=False, **kwargs):
     """
     更新对象的属性
@@ -29,6 +31,7 @@ def update(obj, *, dry_run=False, **kwargs):
         obj.save()
 
 
+# DEPRECATED
 def get_or_create(Model, *, dry_run=False, defaults=None, **kwargs):
     if dry_run:
         L.info('get_or_create model %s, defaults=%s, kwargs=%s', Model,
@@ -43,6 +46,7 @@ def get_or_create(Model, *, dry_run=False, defaults=None, **kwargs):
         return Model.objects.get_or_create(defaults, **kwargs)
 
 
+# DEPRECATED
 def create(Model, *, dry_run=False, **kwargs):
     if dry_run:
         L.info('create %s, with args %s', Model, kwargs)

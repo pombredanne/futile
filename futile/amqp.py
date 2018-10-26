@@ -161,9 +161,9 @@ class Worker:
                     )
                 else:
                     logger.exception("handle message %s error %s", message, e)
-            finally:
-                acker = partial(ch.basic_ack, delivery_tag=method.delivery_tag)
-                self._client.add_callback_threadsafe(acker)
+            # finally:
+            #     acker = partial(ch.basic_ack, delivery_tag=method.delivery_tag)
+            #     self._client.add_callback_threadsafe(acker)
 
 
 class AmqpConsumer:
@@ -204,7 +204,11 @@ class AmqpConsumer:
 
         # on message arrive callback, put message to thread queue
         def on_message(ch, method, props, message):
-            thread_queue.put((ch, method, props, message))
+            try:
+                thread_queue.put_nowait((ch, method, props, message))
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+            except QueueFull:
+                time.sleep(.5)
 
         # retry for 3 times
         for i in range(3):

@@ -277,10 +277,12 @@ def run_service2(
 
     # if conf is specified, load ip and port from conf file
     if conf is not None:
-        bind_ip = conf.get(f"{service_name}.ip")
-        port = conf.get(f"{service_name}.port")
+        conf_ip = conf.get(f"{service_name}.ip")
+        conf_port = conf.get(f"{service_name}.port")
 
-    if port is None:
+    if conf_ip:
+        bind_ip = conf_ip
+    if port is None and conf_port is None:
         port = random.randint(5000, 6000)
 
     server.add_insecure_port(f"{bind_ip}:{port}")

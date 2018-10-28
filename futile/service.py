@@ -279,8 +279,12 @@ def run_service2(
     if conf is not None:
         conf_ip = conf.get(f"{service_name}.ip")
         conf_port = conf.get(f"{service_name}.port")
-        if conf_ip:
-            bind_ip = conf_ip
+    else:
+        conf_ip = None
+        conf_port = None
+
+    if conf_ip:
+        bind_ip = conf_ip
 
     if port is None and conf_port is None:
         port = random.randint(5000, 6000)

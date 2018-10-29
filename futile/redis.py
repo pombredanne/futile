@@ -209,6 +209,12 @@ def make_redis_client(conf=None) -> redis.StrictRedis:
     return redis.StrictRedis(ip, port)
 
 
+def make_redis_stream_client(conf=None) -> redis.StrictRedis:
+    ip = os.environ.get("REDIS_STREAM_IP")
+    port = os.environ.get("REDIS_STREAM_PORT")
+    return redis.StrictRedis(ip, port)
+
+
 def make_pika_client(conf=None) -> redis.StrictRedis:
     # addresses = lookup_service('inf.db.pika')
     # ip, port = addresses[0]

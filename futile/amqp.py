@@ -42,24 +42,8 @@ class AmqpClient:
 
         return wrapped
 
-    def declare_and_bind(self, exchange, routing_key):
-        channel = self.channel()
-        queue_name = channel.declare_queue(exclusive=True).method.queue
-        channel.bind(exchange, queue_name, routing_key)
-        return queue_name
-
     def sleep(self, dur):
         self._connection.sleep(dur)
-
-    def set_handle(self, handle, queue, **kwargs):
-        channel = self.channel()
-
-        def callback(ch, method, props, message):
-            message = json.loads(message)
-            handle(message)
-            channel.basic_ack(delivery_tag=method.delivery_tag)
-
-        return channel.basic_consume(callback, queue, **kwargs)
 
 
 class AmqpProducer:
@@ -135,14 +119,14 @@ class Worker:
     def stop(self):
         self._should_stop = True
 
-    def work(self, queue, handle):
+    def work(self, thread_queue, handle):
         logger = get_logger("Worker")
         while True:
             if self._should_stop:
                 logger.info("receive stop signal, stopping worker...")
                 break
             try:
-                ch, method, props, message = queue.get_nowait()
+                ch, method, props, message = thread_queue.get_nowait()
             except QueueEmpty:
                 logger.debug("worker got no work to do")
                 time.sleep(0.5)
@@ -202,12 +186,15 @@ class AmqpConsumer:
             worker_thread.start()
             self.logger.info("worker %s started", i)
 
+        # 这里有严重的 bug, 直接抛异常实际上还是在读取, 但是 block 之后又会导致链接挂掉,
+        # pika 实在太烂了
         # on message arrive callback, put message to thread queue
         def on_message(ch, method, props, message):
             try:
                 thread_queue.put_nowait((ch, method, props, message))
                 ch.basic_ack(delivery_tag=method.delivery_tag)
             except QueueFull:
+                self.logger.info('thread queue is full!')
                 time.sleep(.5)
 
         # retry for 3 times
@@ -218,6 +205,8 @@ class AmqpConsumer:
                 # start to poll messages
                 self.logger.info("start consuming...")
                 return self._channel.start_consuming()
+            except KeyboardInterrupt:
+                break
             except Exception as e:
                 self.logger.exception("amqp connection error, %s", e)
                 time.sleep(0.5 * (2 ** i))

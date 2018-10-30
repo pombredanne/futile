@@ -8,17 +8,18 @@ def handle(message):
 
 
 def main():
-    init_log("test", console_level="debug")
+    init_log("test", console_level="info")
 
     client = redis.StrictRedis(host="localhost", port=6380)
     producer = RedisProducer(client)
-    producer.create_stream("futile_test", 100)
+    producer.create_stream("futile_test", 10)
     for i in range(100):
-        producer.publish("futile_test", {"foo": i})
+        producer.publish("futile_test", {"foo": b'bar'})
 
     consumer = RedisConsumer(
         client, "futile_test", "test_group", "test_consumer", handle, 1
     )
+    print('start consuming')
 
     # consumer.create_group()
     try:

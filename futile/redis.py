@@ -54,8 +54,8 @@ class RedisProducer:
         """
         _message = []
         for k, v in message.items():
-            _message.append(str(k))
-            _message.append(str(v))
+            _message.append(k)
+            _message.append(v)
         self._client.execute_command("xadd", stream, message_id, *_message)
 
 
@@ -104,17 +104,22 @@ class RedisConsumer:
         while not self._should_stop:
             try:
                 message_id, message = self._local_queue.get_nowait()
+                self._do_process(message_id, message)
             except queue.Empty:
                 self._logger.debug("worker got no work to do")
                 time.sleep(0.5)
                 continue
-            try:
-                self._handle(message)
-                self._client.execute_command(
-                    "xack", self._stream, self._group, message_id
-                )
-            except Exception as e:
-                self._logger.exception("handle message %s error %s", message, e)
+
+    def _do_process(self, message_id, message):
+        try:
+            self._handle(message)
+            rsp = self._client.execute_command(
+                "xack", self._stream, self._group, message_id
+            )
+            if rsp != 1:
+                raise Exception("ack failed, rsp=%s" % rsp)
+        except Exception as e:
+            self._logger.exception("handle message %s error %s", message, e)
 
     def start_consuming(self):
         for i in range(self._max_workers):
@@ -126,25 +131,41 @@ class RedisConsumer:
             worker_thread.start()
 
         # 首先处理 pending
-        # TODO 处理 pending 应该使用 xpending or xreadgroup
         while not self._should_stop:
             rsp = self._client.execute_command(
-                "xpending",
-                self._stream,
+                "xreadgroup",
+                "group",
                 self._group,
-                "-",
-                "+",
-                BATCH_SIZE,
                 self._consumer,
+                "count",
+                BATCH_SIZE,
+                "block",
+                BLOCK_MS,
+                "streams",
+                self._stream,
+                "0",
             )
-            if not rsp:
-                self._logger.info('process pending done')
+            if rsp is None:
+                self._logger.debug("no message in pending")
                 break
-            for message_id, consumer, *message in rsp:
+            _, messages = rsp[0]
+            if not messages:
+                self._logger.debug("no message in pending")
+                break
+            for message_id, message in messages:
+                if message is None:
+                    self._logger.error("message no longer available, %s", message_id)
+                    rsp = self._client.execute_command(
+                        "xack", self._stream, self._group, message_id
+                    )
+                    continue
                 message = _response_to_dict(message)
                 if message.get(b'_') == b'_noop':
+                    rsp = self._client.execute_command(
+                        "xack", self._stream, self._group, message_id
+                    )
                     continue
-                self._local_queue.put((message_id, message))
+                self._do_process(message_id, message)
 
         while not self._should_stop:
             rsp = self._client.execute_command(
@@ -167,6 +188,9 @@ class RedisConsumer:
             for message_id, message in messages:
                 message = _response_to_dict(message)
                 if message.get(b'_') == b'_noop':
+                    rsp = self._client.execute_command(
+                        "xack", self._stream, self._group, message_id
+                    )
                     continue
                 self._local_queue.put((message_id, message))
 

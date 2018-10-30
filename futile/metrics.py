@@ -15,7 +15,7 @@ from typing import Any
 from futile.number import ensure_int, ensure_float
 from futile.aio import aio_wrap
 from futile.log import get_logger
-from futile.queue import queue_mget
+from futile.queues import queue_mget
 from futile.process import run_process
 
 

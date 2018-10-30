@@ -18,6 +18,7 @@ def run_process(target, *, auto_quit=True):
         try:
             target()
         except KeyboardInterrupt:
-            pass
+            sys.stderr.write("process exiting...\n")
+            sys.stderr.flush()
         sys.exit()
 

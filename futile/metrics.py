@@ -4,9 +4,7 @@ import prctl
 import signal
 import time
 import asyncio
-import uuid
 import inspect
-import random
 import concurrent.futures
 import multiprocessing as mp
 from influxdb import InfluxDBClient
@@ -21,7 +19,7 @@ from futile.process import run_process
 
 _metrics_queue = mp.Queue()
 _debug = False
-_batch_size = 10
+_batch_size = 128
 # this thread should stop running in the forked process
 _executor = concurrent.futures.ThreadPoolExecutor(
     max_workers=1, thread_name_prefix="metrics"
@@ -37,8 +35,34 @@ def _exit_emit_loop():
     sys.stderr.flush()
 
 
+def _point_key(p):
+    return f"{p['measurement']}-{sorted(p['tags'].items())}"
+
+
+def _accumulate_counter(points):
+    counters = {}
+    new_points = []
+    for point in points:
+        if point["measurement"].endswith(".counter"):
+            key = _point_key(point)
+            if key not in counters:
+                counters[key] = {
+                    "fields": {"_count": 0},
+                    "time": point["time"],
+                    "measurement": point["measurement"],
+                    "tags": point["tags"],
+                }
+            counters[key]["fields"]["_count"] += point["fields"]["_count"]
+            counters[key]["time"] = point["time"]
+        else:
+            new_points.append(point)
+    new_points.extend(counters.values())
+    return new_points
+
+
 def _emit_loop():
-    sys.stderr.write("metrics starting... pid=%d\n" % os.getpid())
+    sys.stderr.write("metrics starting... batch=%d pid=%d\n" % (_batch_size,
+                                                                os.getpid()))
     sys.stderr.flush()
     from futile.signals import handle_exit
 
@@ -46,21 +70,28 @@ def _emit_loop():
         # TODO drain the queue, when SystemExit receives
         count = 0
         while True:
-            points = queue_mget(_metrics_queue, _batch_size)
-            # points = [_metrics_queue.get()]
-            if _debug:
-                count += len(points)
-                sys.stderr.write(
-                    "%s got %s point, total_count=%s\n"
-                    % (time.time(), len(points), count)
-                )
-                sys.stderr.flush()
-                # sys.stderr.write(str(points) + "\n")
+            try:
+                points = queue_mget(_metrics_queue, _batch_size)
+                # sys.stderr.write("got %d points\n" % len(points))
                 # sys.stderr.flush()
-            _db.write_points(points, time_precision="s")
+                points = _accumulate_counter(points)
+                sys.stderr.write("accumulated %d points\n" % len(points))
+                sys.stderr.flush()
+                if _debug:
+                    count += len(points)
+                    sys.stderr.write(
+                        "%s got %s point, total_count=%s\n"
+                        % (time.time(), len(points), count)
+                    )
+                    sys.stderr.flush()
+                    # sys.stderr.write(str(points) + "\n")
+                    # sys.stderr.flush()
+                _db.write_points(points, time_precision="ms")
+            except Exception as e:
+                get_logger("metrics emitter").exception(e)
 
 
-def init(*, prefix=None, batch_size=10, debug=False, directly=False, **kwargs):
+def init(*, prefix=None, batch_size=128, debug=False, directly=False, **kwargs):
 
     global _prefix
     _prefix = prefix
@@ -80,10 +111,10 @@ def init(*, prefix=None, batch_size=10, debug=False, directly=False, **kwargs):
     else:
         _db = InfluxDBClient(
             host=os.environ.get("INFLUXDB_HOST"),
+            port=int(os.environ.get("INFLUXDB_PORT")),
             # udp_port=int(os.environ.get("INFLUXDB_UDP_PORT")),
-            udp_port=int(os.environ.get("INFLUXDB_UDP_PORT")),
             database=os.environ.get("INFLUXDB_DATABASE"),
-            use_udp=True,
+            # use_udp=True,
         )
 
     frm = inspect.stack()[1]
@@ -104,23 +135,13 @@ def init(*, prefix=None, batch_size=10, debug=False, directly=False, **kwargs):
 
 def _emit(measurement, tags, fields, timestamp=None):
     if timestamp is None:
-        timestamp = int(time.time())
-    # TODO 这里应该再加入一些基础信息到 tags 中
+        timestamp = int(time.time() * 1000)
+    # TODO 这里应该再加入一些基础信息到 tags 中, 比如 IP 什么的
     point = dict(measurement=measurement, tags=tags, fields=fields, time=timestamp)
     if _directly:
-        _db.write_points([point], time_precision="s")
+        _db.write_points([point], time_precision="ms")
     else:
         _metrics_queue.put(point)
-
-
-def _random():
-    """
-    返回一个随机数作为唯一标示, 由于 influxdb 的 max-values-per-tag 限制, 不能使用过多的
-    值, 所以这里选择了 65536 个随机数, 每秒最多打这么多点.
-
-    最好的方式当然是采用一个序列来循环使用, 但是那样要涉及锁, 太复杂了
-    """
-    return random.randint(1, 65536)
 
 
 def emit_counter(key: str, count: int, tags: dict = None, timestamp=None):
@@ -129,17 +150,17 @@ def emit_counter(key: str, count: int, tags: dict = None, timestamp=None):
     """
     if tags is None:
         tags = {}
-    tags["_random"] = _random()
     tags["_key"] = key
     count = ensure_int(count)
     fields = dict(_count=count)
     _emit(_prefix + ".counter", tags, fields, timestamp=timestamp)
 
 
-def emit_store(key: str, value: Any, tags: dict = None, timestamp=None, directly=False):
+def emit_store(key: str, value: Any, tags: dict = None, timestamp=None):
     if tags is None:
         tags = {}
-    fields = {key: value}
+    tags["_key"] = key
+    fields = {"_value": value}
     _emit(_prefix + ".store", tags, fields, timestamp=timestamp)
 
 
@@ -149,7 +170,6 @@ def emit_timer(key: str, duration: float, tags: dict = None, timestamp=None):
     """
     if tags is None:
         tags = {}
-    tags["_random"] = _random()
     tags["_key"] = key
     duration = ensure_float(duration)
     fields = dict(_duration=duration)

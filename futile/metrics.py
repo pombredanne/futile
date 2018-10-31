@@ -61,8 +61,9 @@ def _accumulate_counter(points):
 
 
 def _emit_loop():
-    sys.stderr.write("metrics starting... batch=%d pid=%d\n" % (_batch_size,
-                                                                os.getpid()))
+    sys.stderr.write(
+        "metrics starting... batch=%d pid=%d\n" % (_batch_size, os.getpid())
+    )
     sys.stderr.flush()
     from futile.signals import handle_exit
 
@@ -146,7 +147,7 @@ def _emit(measurement, tags, fields, timestamp=None):
 
 def emit_counter(key: str, count: int, tags: dict = None, timestamp=None):
     """
-    counter 不能被覆盖, 所以添加一个 _random tag 来作为唯一标识
+    counter 不能被覆盖
     """
     if tags is None:
         tags = {}

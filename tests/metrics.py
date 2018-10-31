@@ -15,6 +15,7 @@ l = get_logger("test")
 # metrics.emit_counter('doc', 1)
 
 while True:
-    metrics.emit_counter('doc', 1)
+    for i in 100:
+        metrics.emit_counter('doc', 1)
     l.info('sending metrics')
     time.sleep(5)

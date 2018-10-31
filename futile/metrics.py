@@ -75,9 +75,9 @@ def _emit_loop():
                 # sys.stderr.write("got %d points\n" % len(points))
                 # sys.stderr.flush()
                 points = _accumulate_counter(points)
-                sys.stderr.write("accumulated %d points\n" % len(points))
-                sys.stderr.flush()
                 if _debug:
+                    sys.stderr.write("accumulated %d points\n" % len(points))
+                    sys.stderr.flush()
                     count += len(points)
                     sys.stderr.write(
                         "%s got %s point, total_count=%s\n"

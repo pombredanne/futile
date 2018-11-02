@@ -1,6 +1,8 @@
 # coding: utf-8
 
 import re
+import json
+
 try:
     import cchardet as chardet
 except ImportError:
@@ -16,21 +18,22 @@ def expand(raw):
     ['http://google.com/1.html', 'http://google.com/2.html']
     """
     expanded = [raw]
-    pattern = r'\{(\d+\.{2}\d+)\}'
+    pattern = r"\{(\d+\.{2}\d+)\}"
     while True:
         match = re.search(pattern, expanded[0])
         if not match:
             break
         new_expanded = []
-        start, end = match.group(1).split('..')
+        start, end = match.group(1).split("..")
         for i in range(int(start), int(end)):
-            new_expanded.extend([re.sub(pattern, str(i), raw, count=1)
-                                 for raw in expanded])
+            new_expanded.extend(
+                [re.sub(pattern, str(i), raw, count=1) for raw in expanded]
+            )
         expanded = new_expanded
     return expanded
 
 
-def ensure_str(s, encoding='utf-8', use_chardet=False, errors='ignore'):
+def ensure_str(s, encoding="utf-8", use_chardet=False, errors="ignore"):
     """
     >>> ensure_str(b'hello') == 'hello'
     True
@@ -40,15 +43,19 @@ def ensure_str(s, encoding='utf-8', use_chardet=False, errors='ignore'):
     True
     """
 
-    if use_chardet:
-        r = chardet.detect(s[:1024])
-        encoding = r['encoding']
     if isinstance(s, bytes):
+        if use_chardet:
+            r = chardet.detect(s[:1024])
+            encoding = r["encoding"]
         return s.decode(encoding=encoding, errors=errors)
+    if isinstance(s, (int, float)):
+        return str(s)
+    if isinstance(s, (dict, list)):
+        return json.dumps(s)
     return s
 
 
-def ensure_bytes(s, encoding='utf-8', errors='ignore'):
+def ensure_bytes(s, encoding="utf-8", errors="ignore"):
     """
     >>> ensure_bytes(b'hello') == b'hello'
     True
@@ -78,9 +85,9 @@ def snake_case(s):
     """
     s = ensure_str(s)
     # turing uppercase to seperator with lowercase
-    s = re.sub(r'[A-Z]', r'-\g<0>', s, flags=re.UNICODE)
-    words = compact(re.split(r'\W+', s, flags=re.UNICODE))
-    return '_'.join([word.lower() for word in words])
+    s = re.sub(r"[A-Z]", r"-\g<0>", s, flags=re.UNICODE)
+    words = compact(re.split(r"\W+", s, flags=re.UNICODE))
+    return "_".join([word.lower() for word in words])
 
 
 def dash_case(s):
@@ -99,7 +106,7 @@ def dash_case(s):
     'foo-bar'
     """
     if s:
-        s = snake_case(s).replace('_', '-')
+        s = snake_case(s).replace("_", "-")
     return s
 
 
@@ -124,10 +131,10 @@ def pascal_case(s):
     """
     s = ensure_str(s)
     # turing uppercase to seperator with lowercase
-    s = re.sub(r'[A-Z]', r'-\g<0>', s, flags=re.UNICODE)
-    s = s.replace('_', '-')
-    words = compact(re.split(r'\W+', s, flags=re.UNICODE))
-    return ''.join([word.lower().capitalize() for word in words])
+    s = re.sub(r"[A-Z]", r"-\g<0>", s, flags=re.UNICODE)
+    s = s.replace("_", "-")
+    words = compact(re.split(r"\W+", s, flags=re.UNICODE))
+    return "".join([word.lower().capitalize() for word in words])
 
 
 def camel_case(s):
@@ -152,7 +159,7 @@ def camel_case(s):
     return s
 
 
-def truncate(s, length, ending='…'):
+def truncate(s, length, ending="…"):
     """
     truncate string to given length
 
@@ -163,11 +170,11 @@ def truncate(s, length, ending='…'):
     """
     s = ensure_str(s)
     if len(s) > length:
-        return s[:length - 1] + ending
+        return s[: length - 1] + ending
     return s
 
 
-def to_words(s, as_letter='-'):
+def to_words(s, as_letter="-"):
     """
     convert given string to words list, hypen(-) and underscore is considered a letter
 
@@ -177,25 +184,26 @@ def to_words(s, as_letter='-'):
     ['the', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog']
     """
     s = ensure_str(s)
-    return re.findall(r'[\w\-]+', s, flags=re.UNICODE)  # NOTE greedy mode
+    return re.findall(r"[\w\-]+", s, flags=re.UNICODE)  # NOTE greedy mode
 
 
 def unicode_strip(s) -> str:
-    '''
+    """
     str.strip, but with unicode space characters
 
     >>> unicode_strip('')
     ''
     >>> unicode_strip(u'　 \x0ba\ufeff ')
     'a'
-    '''
+    """
     if not s:
-        return ''
+        return ""
     s = ensure_str(s)
-    spaces = '[ \t\n\r\x00-\x1F\x7F\xA0\xAD\u2000-\u200F\u201F\u202F\u3000\uFEFF]+'
-    return re.sub(u'^%s|%s$' % (spaces, spaces), '', s)
+    spaces = "[ \t\n\r\x00-\x1F\x7F\xA0\xAD\u2000-\u200F\u201F\u202F\u3000\uFEFF]+"
+    return re.sub(u"^%s|%s$" % (spaces, spaces), "", s)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

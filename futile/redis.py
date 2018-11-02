@@ -165,6 +165,7 @@ class RedisConsumer:
                         "xack", self._stream, self._group, message_id
                     )
                     continue
+                self._logger.info("process pending message id %s", message_id)
                 self._do_process(message_id, message)
 
         while not self._should_stop:

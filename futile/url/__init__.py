@@ -253,7 +253,7 @@ def normalize_url(url: str, *, drop_params=None, keep_params=None,
 
         return urlunsplit([scheme, netloc, path, query, fragment])
     except Exception as e:
-        raise Exception('url=%s normalize failed' % url)
+        raise Exception('url=%s normalize failed' % url) from e
 
 
 if __name__ == '__main__':

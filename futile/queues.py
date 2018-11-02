@@ -7,13 +7,21 @@ import sqlite3
 from collections import deque
 
 
-def queue_mget(q, n, timeout=None):
-    result = [q.get(timeout=timeout)]  # block until at least 1
-    try:  # add more until `q` is empty or `n` items obtained
-        while len(result) < n:
-            result.append(q.get(block=False))
-    except queue.Empty:
-        pass
+def queue_mget(q, n, return_when='full', timeout=None):
+    """
+    :return_when:
+        - full: return result when given size is reached
+        - any: return when queue is empty
+    """
+    result = []
+    while len(result) < n:
+        try:
+            result.append(q.get(timeout=timeout))
+        except queue.Empty:
+            if return_when == 'full':
+                pass
+            else:
+                break
     return result
 
 

@@ -26,6 +26,7 @@ _executor = concurrent.futures.ThreadPoolExecutor(
 )
 _prefix = None
 _directly = False
+_max_timer_seq = 128
 _db = None
 
 
@@ -36,11 +37,12 @@ def _exit_emit_loop():
 
 
 def _point_key(p):
-    return f"{p['measurement']}-{sorted(p['tags'].items())}"
+    return f"{p['measurement']}-{sorted(p['tags'].items())}-{p['time']}"
 
 
-def _accumulate_counter(points):
+def _accumulate_points(points):
     counters = {}
+    seqs = {}
     new_points = []
     for point in points:
         if point["measurement"].endswith(".counter"):
@@ -54,6 +56,15 @@ def _accumulate_counter(points):
                 }
             counters[key]["fields"]["_count"] += point["fields"]["_count"]
             counters[key]["time"] = point["time"]
+        elif point['measurement'].endswith('.timer'):
+            key = _point_key(point)
+            if key not in seqs:
+                seqs[key] = 0
+            if seqs[key] > _max_timer_seq:
+                continue
+            point['tags']['_seq'] = seqs[key]
+            seqs[key] += 1
+            new_points.append(point)
         else:
             new_points.append(point)
     new_points.extend(counters.values())
@@ -72,21 +83,21 @@ def _emit_loop():
         count = 0
         while True:
             try:
-                points = queue_mget(_metrics_queue, _batch_size)
+                points = queue_mget(_metrics_queue, _batch_size, timeout=10)
                 # sys.stderr.write("got %d points\n" % len(points))
                 # sys.stderr.flush()
-                points = _accumulate_counter(points)
+                if not points:
+                    continue
+                points = _accumulate_points(points)
                 if _debug:
                     sys.stderr.write("accumulated %d points\n" % len(points))
-                    sys.stderr.flush()
                     count += len(points)
                     sys.stderr.write(
                         "%s got %s point, total_count=%s\n"
                         % (time.time(), len(points), count)
                     )
+                    sys.stderr.write(str(points) + "\n")
                     sys.stderr.flush()
-                    # sys.stderr.write(str(points) + "\n")
-                    # sys.stderr.flush()
                 _db.write_points(points, time_precision="ms")
             except Exception as e:
                 get_logger("metrics emitter").exception(e)
@@ -134,15 +145,42 @@ def init(*, prefix=None, batch_size=128, debug=False, directly=False, **kwargs):
     get_logger("metrics").info("metrics init successfully")
 
 
+_tagkv = {}
+
+
+def define_tagkv(tagk, tagvs):
+    _tagkv[tagk] = set(tagvs)
+
+
 def _emit(measurement, tags, fields, timestamp=None):
+    if measurement is None:
+        measurement = _prefix
+    if tags is None:
+        tags = {}
+    if fields is None:
+        fields = {}
     if timestamp is None:
         timestamp = int(time.time() * 1000)
     # TODO 这里应该再加入一些基础信息到 tags 中, 比如 IP 什么的
     point = dict(measurement=measurement, tags=tags, fields=fields, time=timestamp)
+    if _tagkv:
+        for tagk, tagv in tags.items():
+            if tagv not in _tagkv[tagk]:
+                raise ValueError("tag value = %s not in %s", tagv, _tagkv[tagk])
     if _directly:
         _db.write_points([point], time_precision="ms")
     else:
         _metrics_queue.put(point)
+
+
+def emit(
+    *,
+    measurement: str = None,
+    tags: dict = None,
+    fields: dict = None,
+    timestamp: int = None,
+):
+    _emit(measurement, tags, fields, timestamp)
 
 
 def emit_counter(key: str, count: int, tags: dict = None, timestamp=None):

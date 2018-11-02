@@ -9,13 +9,16 @@ import time
 
 init_log("test metrics")
 
-metrics.init(prefix="test", debug=True, batch_size=1)
+metrics.init(prefix="test", debug=True, batch_size=10)
 
 l = get_logger("test")
 # metrics.emit_counter('doc', 1)
 
+import random
 while True:
-    for i in 100:
+    for i in range(6):
         metrics.emit_counter('doc', 1)
+    for i in range(5):
+        metrics.emit_timer('latency', random.random())
     l.info('sending metrics')
     time.sleep(5)

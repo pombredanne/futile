@@ -7,6 +7,7 @@ import asyncio
 import inspect
 import concurrent.futures
 import multiprocessing as mp
+import threading
 from influxdb import InfluxDBClient
 from typing import Any
 
@@ -56,13 +57,13 @@ def _accumulate_points(points):
                 }
             counters[key]["fields"]["_count"] += point["fields"]["_count"]
             counters[key]["time"] = point["time"]
-        elif point['measurement'].endswith('.timer'):
+        elif point["measurement"].endswith(".timer"):
             key = _point_key(point)
             if key not in seqs:
                 seqs[key] = 0
             if seqs[key] > _max_timer_seq:
                 continue
-            point['tags']['_seq'] = seqs[key]
+            point["tags"]["_seq"] = seqs[key]
             seqs[key] += 1
             new_points.append(point)
         else:
@@ -103,7 +104,19 @@ def _emit_loop():
                 get_logger("metrics emitter").exception(e)
 
 
-def init(*, prefix=None, batch_size=128, debug=False, directly=False, **kwargs):
+def init(
+    *,
+    influxdb_host=None,
+    influxdb_port=None,
+    influxdb_udp_port=None,
+    influxdb_database=None,
+    prefix=None,
+    batch_size=128,
+    debug=False,
+    directly=False,
+    use_udp=False,
+    **kwargs,
+):
 
     global _prefix
     _prefix = prefix
@@ -118,24 +131,17 @@ def init(*, prefix=None, batch_size=128, debug=False, directly=False, **kwargs):
     if _prefix is None:
         raise ValueError("Metric prefix not set")
 
-    if _debug:
-        _db = InfluxDBClient(database="crawl")
-    else:
-        _db = InfluxDBClient(
-            host=os.environ.get("INFLUXDB_HOST"),
-            port=int(os.environ.get("INFLUXDB_PORT")),
-            # udp_port=int(os.environ.get("INFLUXDB_UDP_PORT")),
-            database=os.environ.get("INFLUXDB_DATABASE"),
-            # use_udp=True,
-        )
+    _db = InfluxDBClient(
+        host=os.getenv("INFLUXDB_HOST", influxdb_host),
+        port=int(os.getenv("INFLUXDB_PORT", influxdb_port)),
+        udp_port=int(os.getenv("INFLUXDB_UDP_PORT", influxdb_udp_port)),
+        database=os.getenv("INFLUXDB_DATABASE", influxdb_database),
+        use_udp=use_udp,
+    )
 
-    frm = inspect.stack()[1]
-    mod = inspect.getmodule(frm[0])
-    caller_module = mod.__name__
-    if caller_module != "__main__":
+    if threading.current_thread() != threading.main_thread():
         get_logger("metrics").error(
-            "metrics called from %s, call metrics.init in __main__ module!",
-            caller_module,
+            "metrics called NOT from main thread, call metrics.init in main thread!",
         )
         return
 
@@ -213,6 +219,13 @@ def emit_timer(key: str, duration: float, tags: dict = None, timestamp=None):
     duration = ensure_float(duration)
     fields = dict(_duration=duration)
     _emit(_prefix + ".timer", tags, fields, timestamp=timestamp)
+
+
+def emit_counter_by_dict(counters, tags=None):
+    for k, v in counters.items():
+        if not v:
+            continue
+        emit_counter(k, 1, tags=tags)
 
 
 aemit_counter = aio_wrap(executor=_executor)(emit_counter)

@@ -132,10 +132,10 @@ def init(
         raise ValueError("Metric prefix not set")
 
     _db = InfluxDBClient(
-        host=os.getenv("INFLUXDB_HOST", influxdb_host),
-        port=int(os.getenv("INFLUXDB_PORT", influxdb_port)),
-        udp_port=int(os.getenv("INFLUXDB_UDP_PORT", influxdb_udp_port)),
-        database=os.getenv("INFLUXDB_DATABASE", influxdb_database),
+        host=os.environ.get("INFLUXDB_HOST", influxdb_host),
+        port=int(os.environ.get("INFLUXDB_PORT", influxdb_port)),
+        udp_port=int(os.environ.get("INFLUXDB_UDP_PORT", influxdb_udp_port)),
+        database=os.environ.get("INFLUXDB_DATABASE", influxdb_database),
         use_udp=use_udp,
     )
 

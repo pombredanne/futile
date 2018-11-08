@@ -1,7 +1,7 @@
 import os
-os.putenv("INFLUXDB_HOST", "localhost")
-os.putenv("INFLUXDB_PORT", "8086")
-os.putenv("INFLUXDB_DATABASE", "crawl")
+os.environ["INFLUXDB_HOST"] = "localhost"
+os.environ["INFLUXDB_PORT"] = "8086"
+os.environ["INFLUXDB_DATABASE"] = "crawl"
 
 from futile import metrics
 from futile.log import init_log, get_logger

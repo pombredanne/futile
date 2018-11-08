@@ -107,8 +107,8 @@ def _emit_loop():
 def init(
     *,
     influxdb_host=None,
-    influxdb_port=None,
-    influxdb_udp_port=None,
+    influxdb_port=8086,
+    influxdb_udp_port=8089,
     influxdb_database=None,
     prefix=None,
     batch_size=128,

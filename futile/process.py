@@ -1,4 +1,7 @@
-import prctl
+try:
+    import prctl
+except ImportError:
+    prctl = None
 import signal
 import sys
 import os
@@ -13,7 +16,7 @@ def run_process(target, *, auto_quit=True):
     if pid:
         return
     else:
-        if auto_quit:
+        if auto_quit and prctl:
             prctl.set_pdeathsig(signal.SIGTERM)
         try:
             target()

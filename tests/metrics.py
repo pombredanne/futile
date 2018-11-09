@@ -24,7 +24,7 @@ init_log("test metrics")
 #     **kwargs,
 # ):
 # 或者使用参数传递
-metrics.init(prefix="test", debug=True, batch_size=10)
+metrics.init(prefix="test", debug=True, batch_size=1)
 
 l = get_logger("test")
 

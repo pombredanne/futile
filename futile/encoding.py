@@ -6,11 +6,12 @@ This module is taken from the python-readability lib, which is Apache Licensed
 """
 
 
-__all__ = ['try_decode']
+__all__ = ["try_decode"]
 
 import re
 import sys
 from .strings import ensure_str
+
 try:
     import cchardet as chardet
 except ImportError:
@@ -24,15 +25,7 @@ RE_CHARSET = re.compile(br'<meta.*?charset=["\']*(.+?)["\'>]', flags=re.I)
 RE_PRAGMA = re.compile(br'<meta.*?content=["\']*;?charset=(.+?)["\'>]', flags=re.I)
 RE_XML = re.compile(br'^<\?xml.*?encoding=["\']*(.+?)["\'>]')
 
-CHARSETS = {
-    'big5': 'big5hkscs',
-    'gb2312': 'gb18030',
-    'ascii': 'utf-8',
-    'maccyrillic': 'cp1251',
-    'win1251': 'cp1251',
-    'win-1251': 'cp1251',
-    'windows-1251': 'cp1251',
-}
+
 
 def fix_charset(encoding):
     """
@@ -40,11 +33,9 @@ def fix_charset(encoding):
     or charset determination is a subset of a larger
     charset.  Created because of issues with Chinese websites
     """
-    encoding = ensure_str(encoding.lower())
-    return CHARSETS.get(encoding, encoding)
 
 
-def try_decode(page, hint='utf-8'):
+def try_decode(page, hint="utf-8"):
     """
     get the encoding of give page, and the decoded page
 
@@ -52,9 +43,9 @@ def try_decode(page, hint='utf-8'):
     :return the encoding
     """
     # Regex for XML and HTML Meta charset declaration
-    declared_encodings = RE_CHARSET.findall(page) + \
-                         RE_PRAGMA.findall(page) + \
-                         RE_XML.findall(page)
+    declared_encodings = (
+        RE_CHARSET.findall(page) + RE_PRAGMA.findall(page) + RE_XML.findall(page)
+    )
 
     # Try any declared encodings
     for declared_encoding in declared_encodings:
@@ -69,10 +60,10 @@ def try_decode(page, hint='utf-8'):
 
     # Fallback to chardet if declared encodings fail
     # Remove all HTML tags, and leave only text for chardet
-    text = re.sub(b'(\s*</?[^>]*>)+\s*', b' ', page).strip()
+    text = re.sub(b"(\s*</?[^>]*>)+\s*", b" ", page).strip()
     if chardet:
         res = chardet.detect(text)
-        encoding = res['encoding'] or 'utf-8'
+        encoding = res["encoding"] or "utf-8"
         encoding = fix_charset(encoding)
         try:
             return encoding, page.decode(encoding=encoding)
@@ -80,9 +71,10 @@ def try_decode(page, hint='utf-8'):
             pass
 
     # no way to decode
-    return None, ''
+    return None, ""
+
 
 if __name__ == '__main__"':
     import doctest
-    doctest.testmod()
 
+    doctest.testmod()

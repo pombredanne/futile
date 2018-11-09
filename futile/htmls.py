@@ -14,25 +14,29 @@ try:
 except ImportError:
     import chardet
 
-from .encoding import try_decode
-
-
-utf8_parser = lxml.html.HTMLParser(
-    encoding="utf-8", remove_comments=True
-)  # pylint: disable=invalid-name
+CHARSETS = {
+    "big5": "big5hkscs",
+    "gb2312": "gb18030",
+    "ascii": "utf-8",
+    "maccyrillic": "cp1251",
+    "win1251": "cp1251",
+    "win-1251": "cp1251",
+    "windows-1251": "cp1251",
+}
 
 
 def build_doc(page, url=None, encoding=None):
     """build lxml doc from bytes or unicode"""
-    if isinstance(page, str):
-        decoded_page = page
-    else:
-        _, decoded_page = try_decode(page)
-    # NOTE: we have to do .decode and .encode even for utf-8 to remove bad characters
-    doc = lxml.html.document_fromstring(
-        decoded_page.encode("utf-8", "replace"), parser=utf8_parser
-    )
-    # doc.resovle_base_href(handle_failures='ignore')
+    if isinstance(page, bytes):
+        if not encoding:
+            encoding = chardet.detect(page)['encoding']
+        encoding = encoding.lower()
+        # 扩大区间
+        encoding = CHARSETS.get(encoding, encoding)
+        page = page.decode(encoding)
+    # TODO fallback to html5lib parser when failed
+    doc = lxml.html.document_fromstring(page)
+    doc.resolve_base_href(handle_failures='ignore')
     if url is not None:
         doc.make_links_absolute(url)
     return doc

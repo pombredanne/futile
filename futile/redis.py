@@ -37,7 +37,7 @@ class RedisStream:
 
 
 class RedisProducer:
-    def __init__(self, client):
+    def __init__(self, client, pause_on_full=True):
         self._client = client
 
     def create_stream(self, stream, maxlen):
@@ -48,10 +48,15 @@ class RedisProducer:
     def delete_message(self, stream, message_id):
         self._client.xdel("xdel", stream, message_id)
 
-    def publish(self, stream, message, message_id="*"):
+    def publish(
+        self, stream, message, message_id="*", target_group=None, max_unconsumed=None
+    ):
         """
         发布消息到 redis stream
         """
+        if max_unconsumed is not None:
+            # 检查指定 Consumer Group 是否积压数量
+            pass
         _message = []
         for k, v in message.items():
             _message.append(k)
@@ -133,34 +138,30 @@ class RedisConsumer:
         # 首先处理 pending
         while not self._should_stop:
             rsp = self._client.execute_command(
-                "xreadgroup",
-                "group",
-                self._group,
-                self._consumer,
-                "count",
-                BATCH_SIZE,
-                "block",
-                BLOCK_MS,
-                "streams",
+                "xpending",
                 self._stream,
-                "0",
+                self._group,
+                "-",
+                "+",
+                BATCH_SIZE,
+                self._consumer,
             )
-            if rsp is None:
+            if not rsp:
                 self._logger.debug("no message in pending")
                 break
-            _, messages = rsp[0]
-            if not messages:
-                self._logger.debug("no message in pending")
-                break
-            for message_id, message in messages:
-                if message is None:
-                    self._logger.error("message no longer available, %s", message_id)
-                    rsp = self._client.execute_command(
-                        "xack", self._stream, self._group, message_id
-                    )
-                    continue
+
+            for message_id, _, _, _ in rsp:
+                r = self._client.execute_command(
+                    "xrange",
+                    self._stream,
+                    message_id,
+                    '+',
+                    'count',
+                    '1'
+                )
+                message = r[0][1]
                 message = _response_to_dict(message)
-                if message.get(b'_') == b'_noop':
+                if message.get(b"_") == b"_noop":
                     rsp = self._client.execute_command(
                         "xack", self._stream, self._group, message_id
                     )
@@ -188,7 +189,7 @@ class RedisConsumer:
             _, messages = rsp[0]
             for message_id, message in messages:
                 message = _response_to_dict(message)
-                if message.get(b'_') == b'_noop':
+                if message.get(b"_") == b"_noop":
                     rsp = self._client.execute_command(
                         "xack", self._stream, self._group, message_id
                     )

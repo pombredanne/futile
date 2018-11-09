@@ -38,6 +38,7 @@ class MetricsEmitter:
         self.influxdb = influxdb
         self.tagkv = []
         self.max_timer_seq = max_timer_seq
+        self.lock = threading.Lock()
 
     def define_tagkv(self, tagk, tagvs):
         self.tagkv[tagk] = set(tagvs)
@@ -205,10 +206,11 @@ class MetricsEmitter:
         """
         这里可能抛出异常
         """
-        points = self._emit(point)
-        if points:
-            for chunk in chunked(self.batch_size, points):
-                self.influxdb.write_points(chunk, time_precision="ms")
+        with self.lock:
+            points = self._emit(point)
+            if points:
+                for chunk in chunked(self.batch_size, points):
+                    self.influxdb.write_points(chunk, time_precision="ms")
 
     def emit_any(self, *args, **kwargs):
         point = self.get_point(*args, **kwargs)

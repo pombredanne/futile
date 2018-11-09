@@ -203,6 +203,14 @@ def unicode_strip(s) -> str:
     return re.sub(u"^%s|%s$" % (spaces, spaces), "", s)
 
 
+def render(s: str, c: dict) -> str:
+    from django.template import Template, Context, Engine
+
+    t = Template(s, engine=Engine())
+    c = Context(c)
+    return t.render(c)
+
+
 if __name__ == "__main__":
     import doctest
 

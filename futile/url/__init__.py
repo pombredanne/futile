@@ -2,9 +2,19 @@
 # coding: utf-8
 
 
-__all__ = ['depack_jsonp', 'json_api', 'jsonp_api', 'mget_url_param',
-           'get_url_param', 'update_url_param', 'parse_qs_dict',
-           'build_url', 'get_domain', 'get_main_domain', 'normalize_url']
+__all__ = [
+    "depack_jsonp",
+    "json_api",
+    "jsonp_api",
+    "mget_url_param",
+    "get_url_param",
+    "update_url_param",
+    "parse_qs_dict",
+    "build_url",
+    "get_domain",
+    "get_main_domain",
+    "normalize_url",
+]
 
 import re
 import os
@@ -12,11 +22,17 @@ import json
 import requests
 from ..file import read_list_from_file
 from ..strings import ensure_str
-from urllib.parse import quote as urlquote, unquote as urlunquote, urlsplit, \
-        urlunsplit, urlencode, parse_qsl
+from urllib.parse import (
+    quote as urlquote,
+    unquote as urlunquote,
+    urlsplit,
+    urlunsplit,
+    urlencode,
+    parse_qsl,
+)
 
-PUBLIC_SUFFIX_FILE = os.path.join(os.path.dirname(__file__), 'public_suffix.dat')
-PUBLIC_SUFFIX = set(read_list_from_file(PUBLIC_SUFFIX_FILE, comment='//'))
+PUBLIC_SUFFIX_FILE = os.path.join(os.path.dirname(__file__), "public_suffix.dat")
+PUBLIC_SUFFIX = set(read_list_from_file(PUBLIC_SUFFIX_FILE, comment="//"))
 
 
 def depack_jsonp(jsonp):
@@ -29,8 +45,9 @@ def depack_jsonp(jsonp):
     None
     """
     try:
+        jsonp = ensure_str(jsonp, use_chardet=True)
         # by standard, json data should be wrapped in a dict
-        return re.search(r'[\w\.&\s]+?\((\{.*?\})\)', jsonp).group(1)
+        return re.search(r"[\w\.&\s]+?\((\{.*?\})\)", jsonp).group(1)
     except Exception:
         return None
 
@@ -133,7 +150,7 @@ def get_domain(url: str) -> str:
     """
     url = url.lower()
     u = urlsplit(url)
-    return re.sub(r':.*$', '', re.sub(r'^.*@', '', u.netloc))
+    return re.sub(r":.*$", "", re.sub(r"^.*@", "", u.netloc))
 
 
 def get_main_domain(url: str) -> str:
@@ -154,18 +171,19 @@ def get_main_domain(url: str) -> str:
     'com.cn'
     """
     domain = get_domain(url)
-    domain_parts = domain.split('.')
+    domain_parts = domain.split(".")
     if len(domain_parts) <= 2:
         return domain
     for i in reversed(range(len(domain_parts))):
-        possible_suffix = '.'.join(domain_parts[-i:])
+        possible_suffix = ".".join(domain_parts[-i:])
         if possible_suffix in PUBLIC_SUFFIX:
-            return '.'.join(domain_parts[-i - 1:])
+            return ".".join(domain_parts[-i - 1 :])
     return domain
 
 
-def normalize_url(url: str, *, drop_params=None, keep_params=None,
-                  drop_fragment=True) -> str:
+def normalize_url(
+    url: str, *, drop_params=None, keep_params=None, drop_fragment=True
+) -> str:
     """
     >>> normalize_url('http://google.com')
     'http://google.com/'
@@ -200,40 +218,41 @@ def normalize_url(url: str, *, drop_params=None, keep_params=None,
         # 1. scheme
         scheme = u.scheme.lower()
         if not scheme:
-            scheme = 'http'
+            scheme = "http"
 
         # 2. netloc
-        hostname = (u.hostname or '').lower()
-        if hostname and hostname[-1] == '.':
+        hostname = (u.hostname or "").lower()
+        if hostname and hostname[-1] == ".":
             hostname = hostname[:-1]  # remove ending dot
         # python stdlib may throw exception here when port is not a number
-        if u.port == 80 and scheme == 'http' or u.port == 443 and scheme == 'https':
-            port = ''
+        if u.port == 80 and scheme == "http" or u.port == 443 and scheme == "https":
+            port = ""
         else:
             port = u.port
         netloc = hostname
         if u.username:
             netloc = f"{u.username or ''}:{u.password or ''}@{netloc}"
         if port:
-            netloc = f'{netloc}:{port}'
+            netloc = f"{netloc}:{port}"
 
         # 3. path
-        path_parts = u.path.split('/')
+        path_parts = u.path.split("/")
         new_path_parts = []
         for i, p in enumerate(path_parts):
-            if p == '.':
+            if p == ".":
                 continue
-            elif p == '..' and len(new_path_parts) > 1:
+            elif p == ".." and len(new_path_parts) > 1:
                 new_path_parts.pop()
-            elif p != '' or i == 0 or i == len(path_parts) - 1:
+            elif p != "" or i == 0 or i == len(path_parts) - 1:
                 new_path_parts.append(p)
 
         def fix_quote(s):
             return urlquote(urlunquote(s), safe=":=~+!$,;'@()*[]")  # NOTE no /?&#
+
         new_path_parts = map(fix_quote, new_path_parts)
-        path = '/'.join(new_path_parts)
+        path = "/".join(new_path_parts)
         if not path:
-            path = '/'
+            path = "/"
 
         # 4. query
         qsl = parse_qsl(u.query)
@@ -247,15 +266,16 @@ def normalize_url(url: str, *, drop_params=None, keep_params=None,
 
         # 5. fragment
         if drop_fragment:
-            fragment = ''
+            fragment = ""
         else:
             fragment = u.fragment
 
         return urlunsplit([scheme, netloc, path, query, fragment])
     except Exception as e:
-        raise Exception('url=%s normalize failed' % url) from e
+        raise Exception("url=%s normalize failed" % url) from e
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
+
     doctest.testmod()

@@ -145,7 +145,7 @@ class MysqlDatabase:
             cursor = self._client.cursor(mysql.cursors.DictCursor)
             cursor.execute(stmt)
         except mysql.OperationalError:
-            self.connect()
+            self._client.reconnect()
             cursor = self._client.cursor(mysql.cursors.DictCursor)
             cursor.execute(stmt)
         return cursor

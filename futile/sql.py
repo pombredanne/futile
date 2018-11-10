@@ -11,7 +11,7 @@ class ConnectionError(Exception):
 
 
 def _quote(s):
-    return "'" + str(s) + "'"
+    return "'" + str(s).replace("'", r"\'") + "'"
 
 
 def _dict2str(dictin, joiner=", "):
@@ -145,7 +145,7 @@ class MysqlDatabase:
             cursor = self._client.cursor(mysql.cursors.DictCursor)
             cursor.execute(stmt)
         except mysql.OperationalError:
-            self._client.reconnect()
+            self._client.ping(True)
             cursor = self._client.cursor(mysql.cursors.DictCursor)
             cursor.execute(stmt)
         return cursor

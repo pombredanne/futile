@@ -178,11 +178,10 @@ class MysqlDatabase:
         """
         insert into table (key_list) values (value_list) on duplicate key update (value_list)
         """
-        fields = ",".join(list(defaults.keys()) + list(where.keys()))
-        values = ",".join(
-            [_quote(v) for v in list(defaults.values()) + list(where.values())]
-        )
-        updates = _dict2str(where)
+        insertion = {**defaults, **where}
+        fields = ",".join(insertion.keys())
+        values = ",".join( [_quote(v) for v in insertion.values()])
+        updates = _dict2str(defaults)
         tmpl = "insert into %s (%s) values (%s) on duplicate key update %s"
         stmt = tmpl % (table, fields, values, updates)
         if self._dry_run:

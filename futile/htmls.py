@@ -9,31 +9,16 @@ some functions on html parsing
 import re
 import lxml.html
 
-try:
-    import cchardet as chardet
-except ImportError:
-    import chardet
-
-CHARSETS = {
-    "big5": "big5hkscs",
-    "gb2312": "gb18030",
-    "ascii": "utf-8",
-    "maccyrillic": "cp1251",
-    "win1251": "cp1251",
-    "win-1251": "cp1251",
-    "windows-1251": "cp1251",
-}
+from futile.encoding import smart_decode
 
 
 def build_doc(page, url=None, encoding=None):
     """build lxml doc from bytes or unicode"""
     if isinstance(page, bytes):
         if not encoding:
-            encoding = chardet.detect(page)['encoding']
-        encoding = encoding.lower()
-        # 扩大区间
-        encoding = CHARSETS.get(encoding, encoding)
-        page = page.decode(encoding)
+            _, page = smart_decode(page)
+        else:
+            page = page.decode(encoding)
     # TODO fallback to html5lib parser when failed
     doc = lxml.html.document_fromstring(page)
     doc.resolve_base_href(handle_failures='ignore')

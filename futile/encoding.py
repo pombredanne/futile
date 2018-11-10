@@ -6,7 +6,7 @@ This module is taken from the python-readability lib, which is Apache Licensed
 """
 
 
-__all__ = ["try_decode"]
+__all__ = ["html_decode"]
 
 import re
 import sys
@@ -25,6 +25,15 @@ RE_CHARSET = re.compile(br'<meta.*?charset=["\']*(.+?)["\'>]', flags=re.I)
 RE_PRAGMA = re.compile(br'<meta.*?content=["\']*;?charset=(.+?)["\'>]', flags=re.I)
 RE_XML = re.compile(br'^<\?xml.*?encoding=["\']*(.+?)["\'>]')
 
+CHARSETS = {
+    "big5": "big5hkscs",
+    "gb2312": "gb18030",
+    "ascii": "utf-8",
+    "maccyrillic": "cp1251",
+    "win1251": "cp1251",
+    "win-1251": "cp1251",
+    "windows-1251": "cp1251",
+}
 
 
 def fix_charset(encoding):
@@ -33,9 +42,11 @@ def fix_charset(encoding):
     or charset determination is a subset of a larger
     charset.  Created because of issues with Chinese websites
     """
+    encoding = ensure_str(encoding.lower())
+    return CHARSETS.get(encoding, encoding)
 
 
-def try_decode(page, hint="utf-8"):
+def smart_decode(page, hint="utf-8"):
     """
     get the encoding of give page, and the decoded page
 
@@ -74,7 +85,19 @@ def try_decode(page, hint="utf-8"):
     return None, ""
 
 
-if __name__ == '__main__"':
-    import doctest
+if __name__ == "__main__":
+    import requests
 
-    doctest.testmod()
+    r = requests.get(
+        "https://s.1688.com/selloffer/offer_search.htm?keywords=%B4%BA%CF%C4%C1%AC%D2%C2%C8%B9"
+    )
+    import timeit
+
+    def dec():
+        return smart_decode(r.content)
+
+    enc, page = dec()
+    print(enc, page[:100])
+
+
+    print(timeit.timeit(dec, number=100))

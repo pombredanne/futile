@@ -178,8 +178,10 @@ class MysqlDatabase:
         """
         insert into table (key_list) values (value_list) on duplicate key update (value_list)
         """
-        fields = ",".join(defaults.keys() + where.keys())
-        values = ",".join([_quote(v) for v in defaults.values() + where.values()])
+        fields = ",".join(list(defaults.keys()) + list(where.keys()))
+        values = ",".join(
+            [_quote(v) for v in list(defaults.values()) + list(where.values())]
+        )
         updates = _dict2str(where)
         tmpl = "insert into %s (%s) values (%s) on duplicate key update %s"
         stmt = tmpl % (table, fields, values, updates)
@@ -212,13 +214,13 @@ class MysqlDatabase:
         tmpl = "select %s from %s"
         sql = [tmpl % (keys, table)]
         if where:
-            sql.append('where')
+            sql.append("where")
             sql.append(_dict2str(where, " and "))
         if limit:
-            sql.append('limit')
+            sql.append("limit")
             sql.append(str(limit))
         if offset:
-            sql.append('offset')
+            sql.append("offset")
             sql.append(str(offset))
 
         stmt = " ".join(sql)
@@ -231,11 +233,12 @@ class MysqlDatabase:
 
 def main():
     conn = mysql.connect(
-        host=os.getenv('VS_DB_HOST'),
-        user=os.getenv('VS_DB_USER'),
-        passwd=os.getenv('VS_DB_PASSWORD'),
-        db=os.getenv('VS_DB_NAME'),
-        charset='utf8mb4')
+        host=os.getenv("VS_DB_HOST"),
+        user=os.getenv("VS_DB_USER"),
+        passwd=os.getenv("VS_DB_PASSWORD"),
+        db=os.getenv("VS_DB_NAME"),
+        charset="utf8mb4",
+    )
     db = MysqlDatabase(conn, dry_run=True)
     db.create_table(
         "alibaba_deal_info", [("product_id", "varchar(128)")], ["product_id"]

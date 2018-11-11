@@ -3,6 +3,7 @@ import threading
 from datetime import datetime
 import MySQLdb as mysql
 from queue import LifoQueue, Full, Empty
+from DBUtils.PersistentDB import PersistentDB
 from futile.strings import ensure_str
 
 
@@ -11,7 +12,7 @@ class ConnectionError(Exception):
 
 
 def _quote(s):
-    return "'" + str(s).replace("'", r"\'") + "'"
+    return "'" + mysql.escape_string(str(s)).decode("utf-8") + "'"
 
 
 def _dict2str(dictin, joiner=", "):
@@ -135,19 +136,18 @@ class ConnectionPool:
 
 
 class MysqlDatabase:
-    def __init__(self, client, dry_run=False, autocommit=True):
+    def __init__(self, client, dry_run=False):
         self._client = client
-        self._client.autocommit(autocommit)
         self._dry_run = dry_run
 
+    def connect(self):
+        self._client = mysql.connect(**self._connect_params)
+
     def query(self, stmt):
-        try:
-            cursor = self._client.cursor(mysql.cursors.DictCursor)
-            cursor.execute(stmt)
-        except mysql.OperationalError:
-            self._client.ping(True)
-            cursor = self._client.cursor(mysql.cursors.DictCursor)
-            cursor.execute(stmt)
+        conn = self._client.connection()
+        cursor = conn.cursor(mysql.cursors.DictCursor)
+        cursor.execute(stmt)
+        conn.commit()
         return cursor
 
     def create_table(self, table, fields, indexes):
@@ -180,7 +180,7 @@ class MysqlDatabase:
         """
         insertion = {**defaults, **where}
         fields = ",".join(insertion.keys())
-        values = ",".join( [_quote(v) for v in insertion.values()])
+        values = ",".join([_quote(v) for v in insertion.values()])
         updates = _dict2str(defaults)
         tmpl = "insert into %s (%s) values (%s) on duplicate key update %s"
         stmt = tmpl % (table, fields, values, updates)

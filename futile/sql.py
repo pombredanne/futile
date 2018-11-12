@@ -14,15 +14,18 @@ class ConnectionError(Exception):
 def _quote(s):
     return "'" + mysql.escape_string(str(s)).decode("utf-8") + "'"
 
+def _quote_key(s):
+    return "`"+s+"`"
+
 
 def _dict2str(dictin, joiner=", "):
     # in sql, where key='value' or key in (value), dicts are the values to update
     sql = []
     for k, v in dictin.items():
         if isinstance(v, (list, tuple)):
-            part = f"{k} in ({','.join(map(_quote, v))})"
+            part = f"`{k}` in ({','.join(map(_quote, v))})"
         else:
-            part = f"{k}={_quote(v)}"
+            part = f"`{k}`={_quote(v)}"
         sql.append(part)
     return joiner.join(sql)
 
@@ -150,20 +153,25 @@ class MysqlDatabase:
         conn.commit()
         return cursor
 
-    def create_table(self, table, fields, indexes):
+    def create_table(self, table, fields, indexes, unique=None):
         sql = [
             "create table if not exists ",
             table,
             "(id bigint unsigned not null primary key auto_increment,",
         ]
         for field_name, field_type in fields:
-            sql.append(field_name)
+            sql.append(_quote_key(field_name))
             sql.append(field_type)
             sql.append(",")
         for index in indexes:
             sql.append("index")
-            sql.append("idx_%s(%s)" % (index, index))
+            sql.append("idx_%s(%s)" % (index, _quote_key(index)))
             sql.append(",")
+        if unique:
+            for uniq in unique:
+                sql.append("unique")
+                sql.append("uniq_%s(%s)" %(uniq, _quote_key(uniq)))
+                sql.append(",")
         sql.pop()
         sql.append(
             ") Engine=InnoDB default charset=utf8mb4 collate utf8mb4_general_ci;"
@@ -179,7 +187,7 @@ class MysqlDatabase:
         insert into table (key_list) values (value_list) on duplicate key update (value_list)
         """
         insertion = {**defaults, **where}
-        fields = ",".join(insertion.keys())
+        fields = ",".join(map(_quote_key, insertion.keys()))
         values = ",".join([_quote(v) for v in insertion.values()])
         updates = _dict2str(defaults)
         tmpl = "insert into %s (%s) values (%s) on duplicate key update %s"
@@ -190,8 +198,8 @@ class MysqlDatabase:
             return self.query(stmt)
 
     def insert(self, table, defaults):
-        fields = ",".join(defaults.keys())
-        values = ",".join(defaults.values())
+        fields = ",".join(map(_quote_key,defaults.keys()))
+        values = ",".join(map(_quote, defaults.values()))
         tmpl = "insert into %s (%s) values (%s)"
         stmt = tmpl % (table, fields, values)
         if self._dry_run:

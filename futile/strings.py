@@ -203,12 +203,11 @@ def unicode_strip(s) -> str:
     return re.sub(u"^%s|%s$" % (spaces, spaces), "", s)
 
 
-def render(s: str, c: dict) -> str:
-    from django.template import Template, Context, Engine
+def render(s: str, **kwargs) -> str:
+    from jinja2 import Environment, BaseLoader
 
-    t = Template(s, engine=Engine())
-    c = Context(c)
-    return t.render(c)
+    rtemplate = Environment(loader=BaseLoader).from_string(s)
+    return rtemplate.render(**kwargs)
 
 
 if __name__ == "__main__":

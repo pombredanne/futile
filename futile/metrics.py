@@ -241,15 +241,14 @@ def _emit_loop():
     sys.stderr.flush()
     from futile.signals import handle_exit
 
-    with handle_exit(_exit_emit_loop):
-        # TODO drain the queue, when SystemExit receives
-        while True:
-            try:
-                # 读取一个点
-                point = _metrics_queue.get()
-                _emitter.emit(point)
-            except Exception as e:
-                get_logger("metrics emitter").exception(e)
+    # TODO drain the queue, when SystemExit receives
+    while True:
+        try:
+            # 读取一个点
+            point = _metrics_queue.get()
+            _emitter.emit(point)
+        except Exception as e:
+            get_logger("metrics emitter").exception(e)
 
 
 def init(

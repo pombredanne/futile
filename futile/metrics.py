@@ -7,6 +7,7 @@ import asyncio
 import concurrent.futures
 import multiprocessing as mp
 import threading
+import socket
 from influxdb import InfluxDBClient
 from typing import Any
 
@@ -16,6 +17,7 @@ from futile.aio import aio_wrap
 from futile.log import get_logger
 from futile.queues import queue_mget
 from futile.process import run_process
+from futile.net import get_local_ip
 
 
 _metrics_queue = mp.Queue()
@@ -39,6 +41,7 @@ class MetricsEmitter:
         self.tagkv = []
         self.max_timer_seq = max_timer_seq
         self.lock = threading.Lock()
+        self.hostname = socket.gethostname()
 
     def define_tagkv(self, tagk, tagvs):
         self.tagkv[tagk] = set(tagvs)
@@ -119,6 +122,7 @@ class MetricsEmitter:
         if timestamp is None:
             timestamp = int(time.time() * 1000)
         # TODO 这里应该再加入一些基础信息到 tags 中, 比如 IP 什么的
+        tags['hostname'] = self.hostname
         point = dict(
             measurement=measurement,
             tags=tags,

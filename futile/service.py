@@ -86,6 +86,7 @@ class GrpcClient:
         self,
         service_name,
         *,
+        service_idl=None,
         ip=None,
         port=None,
         max_message_length=MAX_MESSAGE_LENGTH,
@@ -100,14 +101,18 @@ class GrpcClient:
         self._cache_size = cache_size
         self._cache_ttl = cache_ttl
 
+        if service_idl is None:
+            service_idl = service_name
+
         # 导入 grpc 生成的文件
-        # same as `import idl.service_name_pb2 as messagelib`
-        self._messagelib = importlib.import_module("idl." + service_name + "_pb2")
-        # same as `import idl.service_name_pb2_grpc as stublib`
-        self._stublib = importlib.import_module("idl." + service_name + "_pb2_grpc")
+        # same as `import idl.service_idl_pb2 as messagelib`
+        self._messagelib = importlib.import_module("idl." + service_idl + "_pb2")
+        # same as `import idl.service_idl_pb2_grpc as stublib`
+        self._stublib = importlib.import_module("idl." + service_idl + "_pb2_grpc")
 
         self._service_name = service_name
-        stub_name = pascal_case(service_name.split(".")[-1]) + "Stub"
+        self._service_idl = service_idl
+        stub_name = pascal_case(service_idl.split(".")[-1]) + "Stub"
         self._client_stub = getattr(self._stublib, stub_name)
 
         # build a connection pool
@@ -174,8 +179,7 @@ class GrpcClient:
                 else:
                     setattr(req, k, v)
 
-            # make the call
-            # add more pooling technology here
+            # make the call TODO add more pooling technology here
             _, stub = random.choice(self._clients)
             rsp = getattr(stub, attr)(req)
             return rsp
@@ -183,14 +187,16 @@ class GrpcClient:
         return wrapped
 
 
-def make_client2(service_name, *, conf=None, **kwargs):
+def make_client2(service_name, *, service_idl=None, conf=None, **kwargs):
     if conf is not None:
         ip = conf.get(service_name + ".ip")
         port = conf.get(service_name + ".port")
         if ip and port:
-            return GrpcClient(service_name, ip=ip, port=port, **kwargs)
+            return GrpcClient(
+                service_name, service_idl=service_idl, ip=ip, port=port, **kwargs
+            )
 
-    return GrpcClient(service_name, **kwargs)
+    return GrpcClient(service_name, service_idl=service_idl, **kwargs)
 
 
 def make_client(service_name, client_stub, *args, **kwargs):
@@ -219,12 +225,10 @@ class MetricsInterceptor(grpc.ServerInterceptor):
         handler = self._handlers.get(method)
         if not handler:
             raw_handler = getattr(self._servicer, method)
-            if getattr(raw_handler, '_timing', False):
+            if getattr(raw_handler, "_timing", False):
                 handler = raw_handler
             else:
-                handler = grpc.unary_unary_rpc_method_handler(
-                    timing(raw_handler)
-                )
+                handler = grpc.unary_unary_rpc_method_handler(timing(raw_handler))
             self._handlers[method] = handler
         return handler
 
@@ -233,6 +237,7 @@ def run_service2(
     service_name,
     servicer,
     *,
+    service_idl: str = None,
     server_type: str = "thread",
     max_workers: int = 4,
     port: int = None,
@@ -245,6 +250,7 @@ def run_service2(
     """
     :service_name: service name to register in consul
     :servicer: the service class instance
+    :service_idl: the IDL to use for this service
     :server_type: one of `thread`, `process`, `asyncio`
     :max_workers: max worker count for thread and process pools
     :port: port to listen on
@@ -253,6 +259,8 @@ def run_service2(
     :should_timing: whether to send metrics automatically
     """
     assert server_type in ("thread", "process", "asyncio"), "invalid server type"
+    if service_idl is None:
+        service_idl = service_name
     if logger is None:
         logger = get_logger("run_service2")
     if server_type == "thread":
@@ -270,8 +278,8 @@ def run_service2(
     else:
         interceptors = []
     server = grpc.server(executor, interceptors=interceptors)
-    stublib = importlib.import_module("idl." + service_name + "_pb2_grpc")
-    stub_name = pascal_case(service_name.split(".")[-1])
+    stublib = importlib.import_module("idl." + service_idl + "_pb2_grpc")
+    stub_name = pascal_case(service_idl.split(".")[-1])
     add_to_server = getattr(stublib, f"add_{stub_name}Servicer_to_server")
     add_to_server(servicer, server)
 

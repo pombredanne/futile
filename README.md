@@ -10,7 +10,7 @@ The name futile is short for "yi**f**ei's **util**iti**e**s".
 Install & Usage
 ------
 
-    $ pip install futile
+    $ pip install git+https://github.com/yifeikong/futile
 
     >>> from futile.number import parse_fuzzy_number
     >>> parse_fuzzy_number('8,452,558')

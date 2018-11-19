@@ -52,6 +52,8 @@ def ensure_str(s, encoding="utf-8", use_chardet=False, errors="ignore"):
         return str(s)
     if isinstance(s, (dict, list)):
         return json.dumps(s)
+    if s is None:
+        return ""
     return s
 
 

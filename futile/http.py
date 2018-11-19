@@ -3,10 +3,10 @@
 
 
 import random
-import requests
 
 
 def get_page(url):
+    import requests
     try:
         headers = {'User-Agent': get_random_desktop_ua()}
         r = requests.get(url, headers=headers, timeout=10)

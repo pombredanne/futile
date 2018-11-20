@@ -202,7 +202,7 @@ def run_in_pool(*args, **kwargs):
     pool = Pool(*args, **kwargs)
     def wrapper(fn):
         def wrapped(*args, **kwargs):
-            return pool.apply(fn, *args, **kwargs)
+            return pool.apply(fn, args, kwargs)
         return wrapped
     return wrapper
 

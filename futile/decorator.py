@@ -10,6 +10,7 @@ from functools import wraps
 import threading
 import logging
 import pickle
+from multiprocessing.pool import Pool
 
 
 def keep_run(exception_sleep=10):
@@ -195,6 +196,15 @@ def singleton(class_):
                 instances[class_] = class_(*args, **kwargs)
             return instances[class_]
     return get_instance
+
+
+def run_in_pool(*args, **kwargs):
+    pool = Pool(*args, **kwargs)
+    def wrapper(fn):
+        def wrapped(*args, **kwargs):
+            return pool.apply(fn, *args, **kwargs)
+        return wrapped
+    return wrapper
 
 
 if __name__ == '__main__':

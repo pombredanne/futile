@@ -92,7 +92,7 @@ class MetricsEmitter:
             return []
         if _debug:
             sys.stderr.write(
-                "%s got %s raw point" % (time.time(), len(self.pending_points))
+                "%s got %s raw points" % (time.time(), len(self.pending_points))
             )
             sys.stderr.write(json.dumps(self.pending_points, indent=4) + "\n")
             sys.stderr.flush()
@@ -116,8 +116,12 @@ class MetricsEmitter:
             measurement = self.prefix
         if tags is None:
             tags = {}
+        else:
+            tags = tags.copy()
         if fields is None:
             fields = {}
+        else:
+            fields = fields.copy()
         if timestamp is None:
             timestamp = int(time.time() * 1000)
         # TODO 这里应该再加入一些基础信息到 tags 中, 比如 IP 什么的
@@ -149,6 +153,8 @@ class MetricsEmitter:
             measurement = self.prefix + ".counter"
         if tags is None:
             tags = {}
+        else:
+            tags = tags.copy()
         if key is not None:
             tags["_key"] = key
         tags["_type"] = "counter"
@@ -171,6 +177,8 @@ class MetricsEmitter:
             measurement = self.prefix + ".store"
         if tags is None:
             tags = {}
+        else:
+            tags = tags.copy()
         if key is not None:
             tags["_key"] = key
         tags["_type"] = "store"
@@ -195,6 +203,8 @@ class MetricsEmitter:
             measurement = self.prefix + ".timer"
         if tags is None:
             tags = {}
+        else:
+            tags = tags.copy()
         if key is not None:
             tags["_key"] = key
         tags["_type"] = "timer"

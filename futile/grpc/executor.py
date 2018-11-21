@@ -58,9 +58,6 @@ class AsyncioExecutor(futures.Executor):
             self._thread.join()
 
 
-# --------------------------------------------------------------------------- #
-
-
 async def _call_behavior(rpc_event, state, behavior, argument, request_deserializer):
     context = _server._Context(rpc_event, state, request_deserializer)
     try:

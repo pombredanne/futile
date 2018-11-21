@@ -7,7 +7,7 @@ import sys
 import os
 
 
-def run_process(target, *, auto_quit=True):
+def run_process(target, *args, auto_quit=True, **kwargs):
     try:
         pid = os.fork()
     except OSError:
@@ -19,7 +19,7 @@ def run_process(target, *, auto_quit=True):
         if auto_quit and prctl:
             prctl.set_pdeathsig(signal.SIGTERM)
         try:
-            target()
+            target(*args, **kwargs)
         except KeyboardInterrupt:
             sys.stderr.write("process exiting...\n")
             sys.stderr.flush()

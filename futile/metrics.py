@@ -17,7 +17,6 @@ from futile.aio import aio_wrap
 from futile.log import get_logger
 from futile.queues import queue_mget
 from futile.process import run_process
-from futile.net import get_local_ip
 
 
 _metrics_queue = mp.Queue()

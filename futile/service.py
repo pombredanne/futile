@@ -1,11 +1,14 @@
+import os
 import time
 import random
 import grpc
 import importlib
 import json
 import argparse
+import threading
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from typing import List, Any
+from queue import Queue, LifoQueue, Full, Empty
 from google.protobuf.message import Message
 
 from .log import get_logger, init_log
@@ -21,6 +24,14 @@ MAX_MESSAGE_LENGTH = 1024 ** 3  # 1GiB
 CONNECTION_POOL_SIZE = 4
 CACHE_SIZE = 32
 CACHE_TTL = 300  # 5 min
+
+
+class ConnectionError(Exception):
+    pass
+
+
+class TimeoutError(Exception):
+    pass
 
 
 def script_init(
@@ -78,59 +89,145 @@ def script_alive():
     """
 
 
-class GrpcClient:
+class ConnectionPool:
+    def __init__(
+        self,
+        max_connections=50,
+        timeout=20,
+        connection_class=None,
+        queue_class=LifoQueue,
+        **connection_kwargs,
+    ):
 
-    # TODO think about threadsafety
+        self.queue_class = queue_class  # 使用一个队列来存放连接
+        self.timeout = timeout  # 增加了超时功能
+        self.max_connections = max_connections
+        self.connection_class = connection_class
+        self.connection_kwargs = connection_kwargs
+
+        self.reset()  # 调用 reset 初始化一些属性
+
+    def reset(self):
+        self.pid = os.getpid()
+        self._check_lock = threading.Lock()
+
+        # 首先在队列中填满 None，后面会用到，这里很关键
+        self.pool = self.queue_class(self.max_connections)
+        while True:
+            try:
+                self.pool.put_nowait(None)
+            except Full:
+                break
+        # Keep a list of actual connection instances so that we can
+        # disconnect them later.
+        self._connections = []
+
+    def _checkpid(self):
+        # 如果当前的 connection 是 fork 来的，直接关闭链接
+        if self.pid != os.getpid():
+            with self._check_lock:
+                if self.pid == os.getpid():
+                    # 另一个线程已经检查了，直接返回
+                    return
+                self.disconnect()
+                self.reset()
+
+    def make_connection(self):
+        # 创建一个链接，貌似和上面的函数没有什么区别。。
+        connection = self.connection_class(**self.connection_kwargs)
+        # 一直往这个数组里面怼可能有内存泄露风险
+        self._connections.append(connection)
+        return connection
+
+    def get_connection(self):
+        """
+        获取一个新的连接，最长等待 timeout 秒
+
+        如果我们读取到的新连接是 None 的话，就会创建一个新的连接。因为我们使用的
+        是 LIFO 队列，也就是栈，所以我们优先得到的是已经创建的链接，而不是最开始
+        放进去的 None。也就是我们只有在需要的时候才会创建新的连接，也就是说连接
+        数量是按需增长的。
+        """
+        # 确保没有更换进程
+        self._checkpid()
+
+        # 尝试获取一个连接，如果在 timeout 时间内失败的话，抛出 ConnectionError
+        connection = None
+        try:
+            connection = self.pool.get(block=True, timeout=self.timeout)
+        except Empty:
+            # 需要注意的是这个错误并不会被 redis 捕获，需要用户自己处理
+            raise ConnectionError("No connection available.")
+
+        # 如果真的没有连接可用了，直接创建一个新的连接
+        if connection is None:
+            connection = self.make_connection()
+
+        return connection
+
+    def release(self, connection):
+        # 释放连接到连接池
+        self._checkpid()
+        if connection.pid != self.pid:
+            return
+
+        # Put the connection back into the pool.
+        try:
+            self.pool.put_nowait(connection)
+        except Full:
+            # perhaps the pool has been reset() after a fork? regardless,
+            # we don't want this connection
+            pass
+
+    def disconnect(self):
+        # 释放所有的连接
+        for connection in self._connections:
+            connection.disconnect()
+
+
+class GrpcConnection:
+    """
+    not thread safe, use connection pool to maintain thread-safety
+    """
 
     def __init__(
         self,
         service_name,
-        *,
         service_idl=None,
         ip=None,
         port=None,
         max_message_length=MAX_MESSAGE_LENGTH,
-        connection_pool_size=CONNECTION_POOL_SIZE,
-        cache_enabled=False,
-        cache_size=CACHE_SIZE,
-        cache_ttl=CACHE_TTL,
     ):
 
         self._max_message_length = max_message_length
-        self._connection_pool_size = connection_pool_size
-        self._cache_size = cache_size
-        self._cache_ttl = cache_ttl
-
         if service_idl is None:
             service_idl = service_name
+        self._service_name = service_name
+        self._service_idl = service_idl
+        self._ip = ip
+        self._port = port
+        self._logger = get_logger("grpc_client")
+        self.pid = os.getpid()
 
-        # 导入 grpc 生成的文件
+        # import grpc generated files
         # same as `import idl.service_idl_pb2 as messagelib`
         self._messagelib = importlib.import_module("idl." + service_idl + "_pb2")
         # same as `import idl.service_idl_pb2_grpc as stublib`
         self._stublib = importlib.import_module("idl." + service_idl + "_pb2_grpc")
 
-        self._service_name = service_name
-        self._service_idl = service_idl
         stub_name = pascal_case(service_idl.split(".")[-1]) + "Stub"
         self._client_stub = getattr(self._stublib, stub_name)
 
-        # build a connection pool
-        self._clients = []
-        if ip and port:
-            client = self._make_client(ip, port)
-            self._clients.append(((ip, port), client))
-        else:
-            for server_address, client in self._make_clients():
-                self._clients.append((server_address, client))
-                if len(self._clients) >= connection_pool_size:
-                    break
-        if cache_enabled:
-            self._cache = ExpiringLruCache(cache_size, default_timeout=cache_ttl)
-        else:
-            self._cache = None
+        self._stub = None
 
-    def _make_client(self, ip, port):
+    def connect(self):
+        if self._stub:
+            return
+        if not (self._ip and self._port):
+            endpoints = lookup_service(self._service_name)
+            ip, port = random.choice(endpoints)
+        else:
+            ip, port = self._ip, self._port
         channel = grpc.insecure_channel(
             f"{ip}:{port}",
             options=[
@@ -138,33 +235,13 @@ class GrpcClient:
                 ("grpc.max_receive_message_length", self._max_message_length),
             ],
         )
-        client = self._client_stub(channel)
-        return client
+        self._stub = self._client_stub(channel)
 
-    def _make_clients(self):
-        endpoints = lookup_service(self._service_name)
-        random.shuffle(endpoints)
-        for server_address in endpoints:
-            client = self._make_client(*server_address)
-            yield server_address, client
-
-    def _serialize_args(self, **kwargs):
-        # FIXME maybe buggy
-        return json.dumps(kwargs, sort_keys=True)
+    def disconnect(self):
+        self._stub = None
 
     def __getattr__(self, attr):
-        def wrapped(*args, **kwargs):
-
-            if args:
-                raise ValueError("no positional arguments allowed")
-
-            # check the cache
-            if self._cache:
-                cache_key = attr + self._serialize_args(**kwargs)
-                rsp = self._cache.get(cache_key)
-                if rsp is not None:
-                    return rsp
-
+        def wrapped(**kwargs):
             # prep the request
             request_classname = attr + "Request"
             Request = getattr(self._messagelib, request_classname)
@@ -179,10 +256,53 @@ class GrpcClient:
                 else:
                     setattr(req, k, v)
 
-            # make the call TODO add more pooling technology here
-            _, stub = random.choice(self._clients)
-            rsp = getattr(stub, attr)(req)
+            if self._stub is None:
+                self.connect()
+
+            # call the server
+            rsp = getattr(self._stub, attr)(req)
             return rsp
+
+        return wrapped
+
+
+class GrpcClient:
+    def __init__(
+        self,
+        service_name,
+        service_idl=None,
+        ip=None,
+        port=None,
+        max_message_length=MAX_MESSAGE_LENGTH,
+        max_connections=50,
+        timeout=20,
+    ):
+        self._connection_pool = ConnectionPool(
+            service_name=service_name,
+            service_idl=service_idl,
+            ip=ip,
+            port=port,
+            max_message_length=MAX_MESSAGE_LENGTH,
+            max_connections=max_connections,
+            connection_class=GrpcConnection,
+            timeout=timeout,
+        )
+
+    def __getattr__(self, attr):
+        def wrapped(**kwargs):
+            # 执行每条命令都会调用该方法
+            pool = self._connection_pool
+            # 弹出一个连接
+            connection = pool.get_connection()
+            try:
+                return getattr(connection, attr)(**kwargs)
+            except (ConnectionError, TimeoutError) as e:
+                # 如果是连接问题，关闭有问题的连接，下面再次使用这个连接的时候会重新连接。
+                connection.disconnect()
+                return getattr(connection, attr)(**kwargs)
+            finally:
+                # 不管怎样都要把这个连接归还到连接池
+                pool.release(connection)
 
         return wrapped
 
@@ -199,6 +319,7 @@ def make_client2(service_name, *, service_idl=None, conf=None, **kwargs):
     return GrpcClient(service_name, service_idl=service_idl, **kwargs)
 
 
+# deprecated
 def make_client(service_name, client_stub, *args, **kwargs):
 
     endpoints = lookup_service(service_name)

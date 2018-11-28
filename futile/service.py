@@ -14,7 +14,7 @@ from google.protobuf.message import Message
 from .log import get_logger, init_log
 from .strings import pascal_case
 from .signals import handle_exit
-from .consul import register_service, deregister_service, lookup_service
+from .consul import lookup_service
 from .cache import ExpiringLruCache
 from .redis import make_redis_client
 from .timer import timing
@@ -363,7 +363,7 @@ def run_service2(
     max_workers: int = 4,
     port: int = None,
     bind_ip: str = "[::]",
-    should_register: bool = False,
+    should_register: bool = False,  # deprecated
     should_timing: bool = False,
     logger=None,
     conf=None,
@@ -376,7 +376,7 @@ def run_service2(
     :max_workers: max worker count for thread and process pools
     :port: port to listen on
     :bind_ip: ip address to bind to
-    :should_register: whether to register service to consul
+    :should_register: DEPRECATED, whether to register service to consul
     :should_timing: whether to send metrics automatically
     """
     assert server_type in ("thread", "process", "asyncio"), "invalid server type"
@@ -425,16 +425,12 @@ def run_service2(
 
     # exit handler
     def exit():
-        if should_register:
-            deregister_service(service_name)
         server.stop(grace=True)
         logger.info("exiting service %s on %s:%s", service_name, bind_ip, port)
 
     with handle_exit(exit):
         logger.info("starting service %s on %s:%s", service_name, bind_ip, port)
         server.start()
-        if should_register:
-            register_service(service_name, port=port)
         while True:
             time.sleep(3600)
 
@@ -444,14 +440,4 @@ def run_service(service_name, *, server=None, port=10086, bind_ip="[::]"):
     """
     初始化一个服务
     """
-    server.add_insecure_port(f"{bind_ip}:{port}")
-
-    def exit():
-        deregister_service(service_name)
-        server.stop(grace=True)
-
-    with handle_exit(exit):
-        server.start()
-        register_service(service_name, port=port)
-        while True:
-            time.sleep(3600)
+    pass

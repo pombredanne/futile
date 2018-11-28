@@ -77,7 +77,7 @@ def get_js_variable(page, variable):
 
 
 def mget_xpath_val(
-    page_or_doc, xpaths, *, url=None, multi=False, encoding="utf-8", default=""
+    page_or_doc, xpaths, *, url=None, multi=False, encoding=None, default=""
 ):
     """
     >>> page = '<foo><bar class="hello">hello</bar></foo>'
@@ -101,7 +101,7 @@ def mget_xpath_val(
 
 
 def get_xpath_val(
-    page_or_doc, xpath, *, url=None, multi=False, encoding="utf-8", default=""
+    page_or_doc, xpath, *, url=None, multi=False, encoding=None, default=""
 ):
     """
     >>> page = '<foo><bar class="hello">hello</bar></foo>'

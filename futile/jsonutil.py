@@ -1,16 +1,17 @@
 import json
+import io
 import re
 
 from .array import compact
 
-class JsonObject(object):
 
+class JsonObject(object):
     def __init__(self, d):
         self.__dict__ = d
 
 
 def json_at(obj, path, default=None):
-    '''
+    """
     if there is number in path, first try using it as string, then integer
     if a number is wrapped in [], use it as number only
     if a part is `*`, will return a list of result.
@@ -37,26 +38,26 @@ def json_at(obj, path, default=None):
     >>> obj = {'foo': 'bar'}
     >>> print(json_at(obj, '*'))
     ['bar']
-    '''
+    """
     if isinstance(obj, str):
         obj = json.loads(obj)
     objs = [obj]
-    path_parts = compact(path.split('.'))
+    path_parts = compact(path.split("."))
     try:
         for idx, part in enumerate(path_parts):
             new_objs = []
-            if part == '*':
+            if part == "*":
                 for obj in objs:
                     if isinstance(obj, list):
                         new_objs.extend(obj)
                     else:
                         new_objs.extend(obj.values())
             # [x] force number
-            elif re.match(r'\[\d+\]', part):
+            elif re.match(r"\[\d+\]", part):
                 part = int(part[1:-1])
                 for obj in objs:
                     new_objs.append(obj[part])
-            elif re.match(r'\d+', part):
+            elif re.match(r"\d+", part):
                 try:
                     # try x as string
                     for obj in objs:
@@ -73,9 +74,10 @@ def json_at(obj, path, default=None):
             objs = new_objs
     except (KeyError, IndexError, TypeError) as e:
         return default
-    if len(objs) == 1 and '*' not in path:
+    if len(objs) == 1 and "*" not in path:
         return objs[0]
     return objs
+
 
 def json_loads(s):
     return json.loads(s, object_hook=JsonObject)
@@ -102,4 +104,3 @@ def json_load(to_load):
 
 def json_dumps(obj, **kwargs):
     return json.dumps(obj, default=str, **kwargs)
-

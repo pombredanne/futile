@@ -6,7 +6,7 @@ This module is taken from the python-readability lib, which is Apache Licensed
 """
 
 
-__all__ = ["html_decode"]
+__all__ = ["smart_decode"]
 
 import re
 import sys
@@ -50,7 +50,7 @@ def smart_decode(page, hint="utf-8"):
     """
     get the encoding of give page, and the decoded page
 
-    :param lxml.HtmlDocument page
+    :param page, the html page to decode
     :return the encoding
     """
     # Regex for XML and HTML Meta charset declaration
@@ -98,6 +98,5 @@ if __name__ == "__main__":
 
     enc, page = dec()
     print(enc, page[:100])
-
 
     print(timeit.timeit(dec, number=100))

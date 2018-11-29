@@ -12,7 +12,7 @@ import lxml.html
 from futile.encoding import smart_decode
 
 
-def build_doc(page, url=None, encoding=None):
+def build_doc(page, url=None, encoding=None, fragment=False):
     """build lxml doc from bytes or unicode"""
     if isinstance(page, bytes):
         if not encoding:
@@ -20,7 +20,10 @@ def build_doc(page, url=None, encoding=None):
         else:
             page = page.decode(encoding)
     # TODO fallback to html5lib parser when failed
-    doc = lxml.html.document_fromstring(page)
+    if fragment:
+        doc = lxml.html.fragment_fromstring(page)
+    else:
+        doc = lxml.html.document_fromstring(page)
     doc.resolve_base_href(handle_failures='ignore')
     if url is not None:
         doc.make_links_absolute(url)

@@ -133,6 +133,6 @@ def mkdirp(path):
         os.mkdir(path)
 
 
-def local_file(filename):
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+def local_file(basefile, filename):
+    dir_path = os.path.dirname(os.path.realpath(basefile))
     return os.path.join(dir_path, filename)

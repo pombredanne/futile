@@ -4,30 +4,36 @@
 """utility for reading and writing files"""
 
 
-__all__ = ['read_list_from_file', 'write_list_to_file', 'read_list_from_csv',
-           'write_list_to_csv', 'mkdirp']
+__all__ = [
+    "read_list_from_file",
+    "write_list_to_file",
+    "read_list_from_csv",
+    "write_list_to_csv",
+    "mkdirp",
+]
 
 import os
 import csv
 import threading
 from .strings import ensure_bytes, ensure_str
 
+
 class ThreadSafeWriter:
-    '''
+    """
     >>> from StringIO import StringIO
     >>> f = StringIO()
     >>> wtr = ThreadSafeWriter(f)
     >>> wtr.writerow(['a', 'b'])
     >>> f.getvalue() == "a,b\\r\\n"
     True
-    '''
+    """
 
     def __init__(self, f, *args, **kwargs):
         if isinstance(f, str):
-            self._file = open(f, kwargs.get('filemode') or 'w')
+            self._file = open(f, kwargs.get("filemode") or "w")
         else:
             self._file = f
-        self._file.write(u'\ufeff')  # write BOM at the beginning
+        self._file.write(u"\ufeff")  # write BOM at the beginning
         self._writer = csv.writer(self._file, *args, **kwargs)
         self._lock = threading.Lock()
 
@@ -56,13 +62,12 @@ class ThreadSafeWriter:
 
 
 class ThreadSafeDictWriter(csv.DictWriter):
-
     def __init__(self, f, *args, **kwargs):
         if isinstance(f, str):
-            self._file = open(f, kwargs.get('filemode') or 'w')
+            self._file = open(f, kwargs.get("filemode") or "w")
         else:
             self._file = f
-        self._file.write(u'\ufeff')  # write BOM at the beginning
+        self._file.write(u"\ufeff")  # write BOM at the beginning
         self._writer = csv.DictWriter(self._file, *args, **kwargs)
         self._lock = threading.Lock()
 
@@ -92,27 +97,31 @@ class ThreadSafeDictWriter(csv.DictWriter):
 
 def read_list_from_file(filename, type_=str, comment=None):
     """read a list from file"""
-    with open(filename, encoding='utf-8') as f:
-        return [type_(line.strip()) for line in f if not comment or not line.startswith(comment)]
+    with open(filename, encoding="utf-8") as f:
+        return [
+            type_(line.strip())
+            for line in f
+            if not comment or not line.startswith(comment)
+        ]
 
 
 def write_list_to_file(filename, lst):
     """write a list to file"""
-    with open(filename, 'w', encoding='utf-8') as f:
+    with open(filename, "w", encoding="utf-8") as f:
         for line in lst:
-            f.write(u'{}\n'.format(line))
+            f.write(u"{}\n".format(line))
 
 
-def read_list_from_csv(filename, delimiter=','):
+def read_list_from_csv(filename, delimiter=","):
     """read a list of row from csv file"""
     with open(filename) as f:
         csv_reader = csv.reader(f, delimiter=delimiter)
         return list(csv_reader)
 
 
-def write_list_to_csv(filename, lst, delimiter=','):
+def write_list_to_csv(filename, lst, delimiter=","):
     """write a list of row to csv file"""
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         csv_writer = csv.writer(f, delimiter=delimiter)
         for line in lst:
             csv_writer.writerow(line)
@@ -122,3 +131,8 @@ def mkdirp(path):
     """mkdir -p"""
     if not os.path.exists(path):
         os.mkdir(path)
+
+
+def local_file(filename):
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(dir_path, filename)

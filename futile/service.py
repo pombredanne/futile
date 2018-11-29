@@ -316,7 +316,10 @@ def make_client2(service_name, *, service_idl=None, conf=None, **kwargs):
                 service_name, service_idl=service_idl, ip=ip, port=port, **kwargs
             )
 
-    return GrpcClient(service_name, service_idl=service_idl, **kwargs)
+    try:
+        return GrpcClient(service_name, service_idl=service_idl, **kwargs)
+    except Exception:
+        return None
 
 
 # deprecated

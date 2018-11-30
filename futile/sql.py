@@ -14,8 +14,9 @@ class ConnectionError(Exception):
 def _quote(s):
     return "'" + mysql.escape_string(str(s)).decode("utf-8") + "'"
 
+
 def _quote_key(s):
-    return "`"+s+"`"
+    return "`" + s + "`"
 
 
 def _dict2str(dictin, joiner=", "):
@@ -170,7 +171,7 @@ class MysqlDatabase:
         if unique:
             for uniq in unique:
                 sql.append("unique")
-                sql.append("uniq_%s(%s)" %(uniq, _quote_key(uniq)))
+                sql.append("uniq_%s(%s)" % (uniq, _quote_key(uniq)))
                 sql.append(",")
         sql.pop()
         sql.append(
@@ -198,7 +199,7 @@ class MysqlDatabase:
             return self.query(stmt)
 
     def insert(self, table, defaults):
-        fields = ",".join(map(_quote_key,defaults.keys()))
+        fields = ",".join(map(_quote_key, defaults.keys()))
         values = ",".join(map(_quote, defaults.values()))
         tmpl = "insert into %s (%s) values (%s)"
         stmt = tmpl % (table, fields, values)

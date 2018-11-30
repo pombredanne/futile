@@ -267,6 +267,7 @@ def _emit_loop():
             _emitter.emit(point)
         except Exception as e:
             get_logger("metrics emitter").exception(e)
+    _emitter.close()
 
 
 def init(
@@ -346,7 +347,8 @@ def emit_store(*args, **kwargs):
 
 
 def close():
-    _emitter.close()
+    if _directly:
+        _emitter.close()
 
 
 def emit_counter_by_dict(counters, tags=None, timestamp=None):

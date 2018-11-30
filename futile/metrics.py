@@ -53,7 +53,7 @@ class MetricsEmitter:
         seqs = {}
         new_points = []
         for point in points:
-            point_type = point['tags'].get("_type", None)
+            point_type = point["tags"].get("_type", None)
             if point_type == "counter":
                 key = self._point_key(point)
                 if key not in counters:
@@ -78,7 +78,7 @@ class MetricsEmitter:
         new_points.extend(counters.values())
         return new_points
 
-    def _emit(self, point):
+    def _try_emit(self, point):
         """
         pending 表示当前时间戳内的点
         batch 表示积攒的一个组的点
@@ -111,6 +111,22 @@ class MetricsEmitter:
         self.batch = []
         return to_send_points
 
+    def close(self):
+        if _debug:
+            sys.stderr.write(
+                "start draining points %s\n" % json.dumps(self.pending_points, indent=4)
+            )
+            sys.stderr.flush()
+        points = self._accumulate_points(self.pending_points)
+        if _debug:
+            sys.stderr.write(
+                "final points %s\n" % json.dumps(self.pending_points, indent=4)
+            )
+            sys.stderr.flush()
+        if points:
+            for chunk in chunked(self.batch_size, points):
+                self.influxdb.write_points(chunk, time_precision="ms")
+
     def get_point(self, measurement, tags, fields, timestamp=None):
         if measurement is None:
             measurement = self.prefix
@@ -125,13 +141,8 @@ class MetricsEmitter:
         if timestamp is None:
             timestamp = int(time.time() * 1000)
         # TODO 这里应该再加入一些基础信息到 tags 中, 比如 IP 什么的
-        tags['hostname'] = self.hostname
-        point = dict(
-            measurement=measurement,
-            tags=tags,
-            fields=fields,
-            time=timestamp,
-        )
+        tags["hostname"] = self.hostname
+        point = dict(measurement=measurement, tags=tags, fields=fields, time=timestamp)
         if self.tagkv:
             for tagk, tagv in tags.items():
                 if tagv not in self.tagkv[tagk]:
@@ -160,9 +171,7 @@ class MetricsEmitter:
         tags["_type"] = "counter"
         count = ensure_int(count)
         fields = dict(_count=count)
-        point = self.get_point(
-            measurement, tags, fields, timestamp=timestamp
-        )
+        point = self.get_point(measurement, tags, fields, timestamp=timestamp)
         return point
 
     def get_store_point(
@@ -183,9 +192,7 @@ class MetricsEmitter:
             tags["_key"] = key
         tags["_type"] = "store"
         fields = {"_value": value}
-        point = self.get_point(
-            measurement, tags, fields, timestamp=timestamp
-        )
+        point = self.get_point(measurement, tags, fields, timestamp=timestamp)
         return point
 
     def get_timer_point(
@@ -210,9 +217,7 @@ class MetricsEmitter:
         tags["_type"] = "timer"
         duration = ensure_float(duration)
         fields = dict(_duration=duration)
-        point = self.get_point(
-            measurement, tags, fields, timestamp=timestamp
-        )
+        point = self.get_point(measurement, tags, fields, timestamp=timestamp)
         return point
 
     def emit(self, point):
@@ -220,7 +225,7 @@ class MetricsEmitter:
         这里可能抛出异常
         """
         with self.lock:
-            points = self._emit(point)
+            points = self._try_emit(point)
             if points:
                 for chunk in chunked(self.batch_size, points):
                     self.influxdb.write_points(chunk, time_precision="ms")
@@ -338,6 +343,10 @@ def emit_store(*args, **kwargs):
         _emitter.emit_store(*args, **kwargs)
     else:
         _metrics_queue.put(_emitter.get_store_point(*args, **kwargs))
+
+
+def close():
+    _emitter.close()
 
 
 def emit_counter_by_dict(counters, tags=None, timestamp=None):

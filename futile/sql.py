@@ -154,7 +154,7 @@ class MysqlDatabase:
         conn.commit()
         return cursor
 
-    def create_table(self, table, fields, indexes, unique=None):
+    def create_table(self, table, fields, indexes=None, unique=None):
         sql = [
             "create table if not exists ",
             table,
@@ -164,14 +164,23 @@ class MysqlDatabase:
             sql.append(_quote_key(field_name))
             sql.append(field_type)
             sql.append(",")
-        for index in indexes:
-            sql.append("index")
-            sql.append("idx_%s(%s)" % (index, _quote_key(index)))
-            sql.append(",")
+        if indexes:
+            for index in indexes:
+                sql.append("index")
+                if isinstance(index, str):
+                    index = [index]
+                sql.append(
+                    "idx_%s(%s)" % ("_".join(index), ",".join(map(_quote_key, index)))
+                )
+                sql.append(",")
         if unique:
             for uniq in unique:
                 sql.append("unique")
-                sql.append("uniq_%s(%s)" % (uniq, _quote_key(uniq)))
+                if isinstance(uniq, str):
+                    uniq = [uniq]
+                sql.append(
+                    "uniq_%s(%s)" % ("_".join(uniq), ",".join(map(_quote_key, uniq)))
+                )
                 sql.append(",")
         sql.pop()
         sql.append(
@@ -240,16 +249,11 @@ class MysqlDatabase:
 
 
 def main():
-    conn = mysql.connect(
-        host=os.getenv("VS_DB_HOST"),
-        user=os.getenv("VS_DB_USER"),
-        passwd=os.getenv("VS_DB_PASSWORD"),
-        db=os.getenv("VS_DB_NAME"),
-        charset="utf8mb4",
-    )
-    db = MysqlDatabase(conn, dry_run=True)
+    db = MysqlDatabase(None, dry_run=True)
     db.create_table(
-        "alibaba_deal_info", [("product_id", "varchar(128)")], ["product_id"]
+        "alibaba_deal_info",
+        [("product_id", "varchar(128)")],
+        [["product_id", "city"], ["id"]],
     )
     db.insert("alibaba_deal_info", {"foo": "bar", "a": "b"})
     db.select("alibaba_product", where={"product_id": 1}, limit=5, offset=5)

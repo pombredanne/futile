@@ -296,7 +296,7 @@ class GrpcClient:
             connection = pool.get_connection()
             try:
                 return getattr(connection, attr)(**kwargs)
-            except (ConnectionError, TimeoutError) as e:
+            except grpc.RpcError as e:
                 # 如果是连接问题，关闭有问题的连接，下面再次使用这个连接的时候会重新连接。
                 connection.disconnect()
                 return getattr(connection, attr)(**kwargs)

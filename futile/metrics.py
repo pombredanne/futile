@@ -125,7 +125,11 @@ class MetricsEmitter:
             sys.stderr.flush()
         if points:
             for chunk in chunked(self.batch_size, points):
-                self.influxdb.write_points(chunk, time_precision="ms")
+                try:
+                    self.influxdb.write_points(chunk, time_precision="ms")
+                except Exception as e:
+                    sys.stderr.write("%s error writing points" % time.time())
+                    sys.stderr.flush()
 
     def get_point(self, measurement, tags, fields, timestamp=None):
         if measurement is None:
@@ -228,7 +232,11 @@ class MetricsEmitter:
             points = self._try_emit(point)
             if points:
                 for chunk in chunked(self.batch_size, points):
-                    self.influxdb.write_points(chunk, time_precision="ms")
+                    try:
+                        self.influxdb.write_points(chunk, time_precision="ms")
+                    except Exception as e:
+                        sys.stderr.write("%s error writing points\n" % time.time())
+                        sys.stderr.flush()
 
     def emit_any(self, *args, **kwargs):
         point = self.get_point(*args, **kwargs)

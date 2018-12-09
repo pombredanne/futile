@@ -1,8 +1,16 @@
 # coding: utf-8
 
 
-__all__ = ['keep_run', 'after', 'before', 'throttle', 'rate_limited', 'memoized',
-           'no_raise', 'lazyproperty']
+__all__ = [
+    "keep_run",
+    "after",
+    "before",
+    "throttle",
+    "rate_limited",
+    "memoized",
+    "no_raise",
+    "lazyproperty",
+]
 
 import time
 import sys
@@ -29,7 +37,9 @@ def keep_run(exception_sleep=10):
                 logging.exception(e)
                 if exception_sleep > 0:
                     time.sleep(exception_sleep)
+
         return wrapped
+
     return decorated
 
 
@@ -37,6 +47,7 @@ def after(n):
     """
     run a function only after n times
     """
+
     def decorate(fn):
         i = 0
 
@@ -46,7 +57,9 @@ def after(n):
             i += 1
             if i >= n:
                 return fn(*args, **kwargs)
+
         return wrapped
+
     return decorate
 
 
@@ -54,15 +67,19 @@ def before(n):
     """
     run a function only the first n times
     """
+
     def decorate(fn):
         i = 0
+
         @wraps(fn)
         def wrapped(*args, **kwargs):
             nonlocal i
             i += 1
             if i < n:
                 return fn(*args, **kwargs)
+
         return wrapped
+
     return decorate
 
 
@@ -88,6 +105,7 @@ class memoized:
 
     Deprecated, consider using functools.lru_cache
     """
+
     # TODO, fn and class method?
     def __init__(self, fn):
         self.fn = fn
@@ -96,10 +114,10 @@ class memoized:
     def __call__(self, *args, **kwargs):
         key = pickle.dumps(args) + pickle.dumps(kwargs)
         if key not in self.memo:
-            logging.debug('miss')
+            logging.debug("miss")
             self.memo[key] = self.fn(*args, **kwargs)
         else:
-            logging.debug('hit')
+            logging.debug("hit")
         return self.memo[key]
 
 
@@ -107,6 +125,7 @@ def no_raise(exceptions=Exception, default=None):
     """
     Instead of raising exceptions, return boolean values to indicate errors.
     """
+
     @wraps
     def decorate(fn):
         def wrapped(*args, **kwargs):
@@ -114,7 +133,9 @@ def no_raise(exceptions=Exception, default=None):
                 return True, fn(*args, **kwargs)
             except exceptions:
                 return False, default
+
         return wrapped
+
     return decorate
 
 
@@ -127,18 +148,22 @@ def rate_limited(max_qps):
     get_time = time.perf_counter if sys.version_info.major > 2 else time.clock
 
     def decorate(fn):
-        last_time_called = [get_time()] # NOTE the array is a workaround for nonlocal access
+        last_time_called = get_time()
+
         @wraps(fn)
         def wrapped(*args, **kwargs):
+            nonlocal last_time_called
             with lock:
-                elapsed = get_time() - last_time_called[0]
+                elapsed = get_time() - last_time_called
                 left_to_wait = min_interval - elapsed
                 if left_to_wait > 0:
                     time.sleep(left_to_wait)
                 ret = fn(*args, **kwargs)
-                last_time_called[0] = get_time()
+                last_time_called = get_time()
             return ret
+
         return wrapped
+
     return decorate
 
 
@@ -148,6 +173,7 @@ def synchronized(lock=None):
     """
     if lock is None:
         lock = threading.Lock()
+
     def wrap(f):
         def locked(*args, **kw):
             lock.acquire()
@@ -155,7 +181,9 @@ def synchronized(lock=None):
                 return f(*args, **kw)
             finally:
                 lock.release()
+
         return locked
+
     return wrap
 
 
@@ -195,37 +223,44 @@ def singleton(class_):
             if class_ not in instances:
                 instances[class_] = class_(*args, **kwargs)
             return instances[class_]
+
     return get_instance
 
 
 def run_in_pool(*args, **kwargs):
     pool = Pool(*args, **kwargs)
+
     def wrapper(fn):
         def wrapped(*args, **kwargs):
             return pool.apply(fn, args, kwargs)
+
         return wrapped
+
     return wrapper
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+
     @after(2)
     def hello_after():
-        print('hello after 2')
+        print("hello after 2")
 
     @before(2)
     def hello_before():
-        print('hello before 2')
-    print('first time')
+        print("hello before 2")
+
+    print("first time")
     hello_after()
     hello_before()
-    print('second time')
+    print("second time")
     hello_after()
     hello_before()
 
-    print('testing rate_limited decorator')
+    print("testing rate_limited decorator")
 
     @rate_limited(max_qps=10)
     def print_number(num):
         print(int(time.time()), num)
+
     for i in range(100):
         print_number(i)

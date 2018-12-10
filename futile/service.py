@@ -239,6 +239,8 @@ class GrpcConnection:
 
     def disconnect(self):
         self._stub = None
+        self._ip = None
+        self._port = None
 
     def __getattr__(self, attr):
         def wrapped(**kwargs):

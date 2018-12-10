@@ -3,7 +3,6 @@ from consul import Consul
 from .net import get_local_ip
 
 
-@lru_cache(maxsize=256)
 def lookup_service(service_name):
     consul = Consul()
     _, services = consul.catalog.service(service_name)
@@ -11,7 +10,6 @@ def lookup_service(service_name):
     return endpoints
 
 
-@lru_cache(maxsize=256)
 def lookup_kv(key, default=None):
     consul = Consul()
     _, data = consul.kv.get(key)
@@ -28,4 +26,3 @@ def register_service(service_name: str, *, address: str = None, port: int = None
 def deregister_service(service_name: str):
     consul = Consul()
     consul.agent.service.deregister(service_name)
-

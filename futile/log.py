@@ -5,6 +5,9 @@ import logging.handlers
 import threading
 
 
+LOG_FORMAT = "%(asctime)s %(process)d-%(threadName)s [%(name)s]-%(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+
+
 def setup_thread_excepthook():
     """
     Workaround for `sys.excepthook` thread bug from:
@@ -46,7 +49,7 @@ class PrefixLogger:
         return log
 
 
-def get_logger(name, level=logging.DEBUG):
+def get_logger(name, level=logging.INFO):
     """
     生成一个logger，日志会交给上层的logger处理
     """
@@ -79,9 +82,7 @@ def init_log(
 
     root_logger = logging.getLogger("")
     root_logger.handlers = []
-    formatter = logging.Formatter(
-        "%(asctime)s %(process)d-%(threadName)s [%(name)s]-%(levelname)s - %(message)s - %(filename)s:%(lineno)d"
-    )
+    formatter = logging.Formatter(LOG_FORMAT)
 
     def exception_hook(type, value, tb):
         import traceback

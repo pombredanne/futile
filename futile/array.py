@@ -3,6 +3,7 @@
 
 
 __all__ = [
+    "identity",
     "chunked",
     "chunked_qs",
     "compact",
@@ -35,6 +36,10 @@ import itertools
 import functools
 from datetime import timedelta
 from typing import Iterable
+
+
+def identity(obj):
+    return obj
 
 
 def chunked(chunk_size, iterable, len_func=len):

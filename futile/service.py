@@ -237,6 +237,16 @@ class GrpcConnection:
         )
         self._stub = self._client_stub(channel)
 
+    @classmethod
+    def connect_all(cls, service_name, service_idl):
+        connections = []
+        endpoints = lookup_service(service_name)
+        for ip, port in endpoints:
+            connection = cls(service_name, service_idl, ip, port)
+            connection.connect()
+            connections.append(connection)
+        return connections
+
     def disconnect(self):
         self._stub = None
         self._ip = None
@@ -279,6 +289,8 @@ class GrpcClient:
         max_connections=50,
         timeout=20,
     ):
+        self._service_name = service_name
+        self._service_idl = service_idl
         self._connection_pool = ConnectionPool(
             service_name=service_name,
             service_idl=service_idl,
@@ -289,6 +301,13 @@ class GrpcClient:
             connection_class=GrpcConnection,
             timeout=timeout,
         )
+
+    def broadcast(self, method, **kwargs):
+        connections = GrpcConnection.connect_all(self._service_name, self._service_idl)
+        ret = []
+        for connection in connections:
+            ret.append(getattr(connection, method)(**kwargs))
+        return ret
 
     def __getattr__(self, attr):
         def wrapped(**kwargs):

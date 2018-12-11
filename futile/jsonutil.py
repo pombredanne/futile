@@ -39,7 +39,7 @@ def json_at(obj, path, default=None):
     >>> print(json_at(obj, '*'))
     ['bar']
     """
-    if isinstance(obj, str):
+    if isinstance(obj, (bytes, str)):
         obj = json.loads(obj)
     objs = [obj]
     path_parts = compact(path.split("."))

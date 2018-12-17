@@ -55,7 +55,7 @@ def script_init(
         restart_interval=restart_interval,
     )
     kv_client = make_redis_client()
-    kv_client.zadd("inf:script_info", time.time(), json.dumps(script_meta))
+    # kv_client.zadd("inf:script_info", time.time(), json.dumps(script_meta))
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--port", type=int, help="Port to use for this service")

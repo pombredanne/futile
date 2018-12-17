@@ -19,6 +19,7 @@ from futile.queues import queue_mget
 from futile.process import run_process
 
 
+_inited_pid = None
 _metrics_queue = mp.Queue()
 _debug = False
 # this thread should stop running in the forked process
@@ -290,11 +291,18 @@ def init(
     directly=False,
     use_thread=False,
     use_udp=False,
+    timeout=10,
     **kwargs,
 ):
 
     if prefix is None:
         raise ValueError("Metric prefix not set")
+
+    global _inited_pid
+    if _inited_pid == os.getpid():
+        return
+
+    _inited_pid = os.getpid()
 
     global _debug
     _debug = debug
@@ -307,6 +315,7 @@ def init(
         udp_port=int(os.environ.get("INFLUXDB_UDP_PORT", influxdb_udp_port)),
         database=os.environ.get("INFLUXDB_DATABASE", influxdb_database),
         use_udp=use_udp,
+        timeout=timeout,
     )
     _emitter = MetricsEmitter(db, prefix, batch_size=batch_size)
 

@@ -61,13 +61,12 @@ def get_logger(name, level=logging.INFO):
     if not logger.handlers:
         handler = logging.NullHandler()
         logger.addHandler(handler)
-        # handler 不设置级别
         logger.setLevel(level)
     return logger
 
 
 def init_log(
-    script_name,
+    script_name="",
     console_level=logging.INFO,
     file_level=logging.INFO,
     additional_handlers=None,

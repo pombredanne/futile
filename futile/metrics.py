@@ -300,6 +300,7 @@ def init(
 
     global _inited_pid
     if _inited_pid == os.getpid():
+        get_logger("metrics").error("metrics already started")
         return
 
     _inited_pid = os.getpid()
@@ -326,9 +327,7 @@ def init(
             thread.start()
         else:
             if threading.current_thread() != threading.main_thread():
-                get_logger("metrics").error(
-                    "metrics called NOT from main thread, call metrics.init in main thread!"
-                )
+                get_logger("metrics").error("metrics called NOT from main thread")
                 return
             run_process(_emit_loop, auto_quit=True)
 

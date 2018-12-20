@@ -16,13 +16,22 @@ class Nomad:
         self._timeout = timeout
         self._session = requests.Session()
 
+    def dispatch_job(self, job_id, **kwargs):
+        url = f"{self._address}/v1/job/{job_id}/dispatch"
+        try:
+            rsp = self._session.post(url=url, json=kwargs, timeout=self._timeout)
+        except Exception as e:
+            raise NomadException from e
+        print(rsp.text)
+        return rsp.json()
+
     def __getattr__(self, attr):
         method, *endpoints = attr.split("_")
 
         def fn(id=None, **kwargs):
             url = f'{self._address}/v1/{"/".join(endpoints)}'
             if id is not None:
-                url += f'/{id}'
+                url += f"/{id}"
             try:
                 if method == "get":
                     rsp = self._session.request(

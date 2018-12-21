@@ -17,6 +17,9 @@ class Nomad:
         self._session = requests.Session()
 
     def dispatch_job(self, job_id, **kwargs):
+        """
+        这里比较坑的是, meta 参数必须是字符串
+        """
         url = f"{self._address}/v1/job/{job_id}/dispatch"
         try:
             rsp = self._session.post(url=url, json=kwargs, timeout=self._timeout)

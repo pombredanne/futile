@@ -1,43 +1,66 @@
 import time
+import threading
 
 
 class TokenBucket:
 
-    def __init__(self, capacity: int, fill_rate: int, fill_interval: int = 1) -> None:
-        self.capacity = capacity
-        self.tokens = 0
-        self.fill_rate = fill_rate
-        self.fill_interval = fill_interval
-        self.last_run_time = 0
+    """
+    令牌桶算法
+    """
 
-    def get_tokens(self) -> int:
-        # update tokens
+    def __init__(self, capacity: int, fill_count: int, fill_interval: int = 1) -> None:
+        """
+        :param capacity: 桶的最大容量
+        :param fill_count: 每次填入的数量
+        :param fill_interval: 填充的间隔
+        """
+        self.capacity = capacity
+        self.fill_count = fill_count
+        self.fill_interval = fill_interval
+        self.rate = fill_count / fill_interval
+
+        self.tokens = 0  # 当前桶中的令牌数量
+        self.last_run_time = 0  # 上次获取令牌时间
+        self.lock = threading.Lock()
+
+    def _update_tokens(self) -> int:
+        """
+        更新当前桶中的令牌数量, 并返回
+        """
         current = int(time.time())
         time_passed = current - self.last_run_time
-        self.tokens += int(time_passed * self.fill_rate / self.fill_interval)
+        self.tokens += int(time_passed * self.rate)
         self.last_run_time = current
-        if self.tokens > self.capacity:
+        if self.tokens > self.capacity:  # 最大不能超过容量
             self.tokens = self.capacity
-        return self.tokens
 
-    def consume(self, count: int) -> bool:
-        if self.get_tokens() >= count:
-            allowed = True
-            self.tokens -= count
-        else:
-            allowed = False
-        return allowed
+    def get_tokens(self) -> int:
+        with self.lock:
+            self._update_tokens()
+            return self.tokens
+
+    def consume(self, count: int):
+        """
+        return (ok, wait) 是否可以执行, 如果不可以执行, 至少需要等待的时间
+        """
+        with self.lock:
+            self._update_tokens()
+            if self.tokens >= count:
+                self.tokens -= count
+                return True, 0
+            else:
+                return False, (count - self.tokens) / self.rate
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     bucket = TokenBucket(80, 1, 1)
     assert bucket.get_tokens() == 80
     print("consume(10) =", bucket.consume(10))
     print("consume(10) =", bucket.consume(10))
-    print('sleep 1 sec')
+    print("sleep 1 sec")
     time.sleep(1)
     print("tokens =", bucket.get_tokens())
-    print('sleep 1 sec')
+    print("sleep 1 sec")
     time.sleep(1)
     print("tokens =", bucket.get_tokens())
     print("consume(90) =", bucket.consume(90))

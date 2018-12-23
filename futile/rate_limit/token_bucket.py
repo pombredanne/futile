@@ -8,22 +8,19 @@ class TokenBucket:
     令牌桶算法
     """
 
-    def __init__(self, capacity: int, fill_count: int, fill_interval: int = 1) -> None:
+    def __init__(self, capacity: int, rate: int) -> None:
         """
         :param capacity: 桶的最大容量
-        :param fill_count: 每次填入的数量
-        :param fill_interval: 填充的间隔
+        :param rate: 填充速度(个/s)
         """
         self.capacity = capacity
-        self.fill_count = fill_count
-        self.fill_interval = fill_interval
-        self.rate = fill_count / fill_interval
+        self.rate = rate
 
         self.tokens = 0  # 当前桶中的令牌数量
         self.last_run_time = 0  # 上次获取令牌时间
         self.lock = threading.Lock()
 
-    def _update_tokens(self) -> int:
+    def _update_tokens(self) -> None:
         """
         更新当前桶中的令牌数量, 并返回
         """
@@ -53,7 +50,7 @@ class TokenBucket:
 
 
 if __name__ == "__main__":
-    bucket = TokenBucket(80, 1, 1)
+    bucket = TokenBucket(80, 1)
     assert bucket.get_tokens() == 80
     print("consume(10) =", bucket.consume(10))
     print("consume(10) =", bucket.consume(10))

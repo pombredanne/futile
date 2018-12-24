@@ -335,6 +335,8 @@ def init(
 
 
 def emit_any(*args, **kwargs):
+    if not _emitter:
+        return
     if _directly:
         _emitter.emit_any(*args, **kwargs)
     else:
@@ -342,6 +344,8 @@ def emit_any(*args, **kwargs):
 
 
 def emit_counter(*args, **kwargs):
+    if not _emitter:
+        return
     if _directly:
         _emitter.emit_counter(*args, **kwargs)
     else:
@@ -349,6 +353,8 @@ def emit_counter(*args, **kwargs):
 
 
 def emit_timer(*args, **kwargs):
+    if not _emitter:
+        return
     if _directly:
         _emitter.emit_timer(*args, **kwargs)
     else:
@@ -356,6 +362,8 @@ def emit_timer(*args, **kwargs):
 
 
 def emit_store(*args, **kwargs):
+    if not _emitter:
+        return
     if _directly:
         _emitter.emit_store(*args, **kwargs)
     else:

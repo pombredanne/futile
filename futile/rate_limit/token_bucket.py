@@ -36,7 +36,7 @@ class TokenBucket:
             self._update_tokens()
             return self.tokens
 
-    def consume(self, count: int):
+    def consume(self, count: int) -> int:
         """
         return (ok, wait) 是否可以执行, 如果不可以执行, 至少需要等待的时间
         """
@@ -44,9 +44,9 @@ class TokenBucket:
             self._update_tokens()
             if self.tokens >= count:
                 self.tokens -= count
-                return True, 0
+                return 0
             else:
-                return False, (count - self.tokens) / self.rate
+                return (count - self.tokens) / self.rate
 
 
 if __name__ == "__main__":

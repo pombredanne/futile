@@ -4,9 +4,8 @@ from collections import OrderedDict, Callable
 class OrderedDefaultDict(OrderedDict):
     # Source: http://stackoverflow.com/a/6190500/562769
     def __init__(self, default_factory=None, *a, **kw):
-        if (default_factory is not None and
-           not isinstance(default_factory, Callable)):
-            raise TypeError('first argument must be callable')
+        if default_factory is not None and not isinstance(default_factory, Callable):
+            raise TypeError("first argument must be callable")
         OrderedDict.__init__(self, *a, **kw)
         self.default_factory = default_factory
 
@@ -26,7 +25,7 @@ class OrderedDefaultDict(OrderedDict):
         if self.default_factory is None:
             args = tuple()
         else:
-            args = self.default_factory,
+            args = (self.default_factory,)
         return type(self), args, None, None, self.items()
 
     def copy(self):
@@ -37,12 +36,14 @@ class OrderedDefaultDict(OrderedDict):
 
     def __deepcopy__(self, memo):
         import copy
-        return type(self)(self.default_factory,
-                          copy.deepcopy(self.items()))
+
+        return type(self)(self.default_factory, copy.deepcopy(self.items()))
 
     def __repr__(self):
-        return 'OrderedDefaultDict(%s, %s)' % (self.default_factory,
-                                               OrderedDict.__repr__(self))
+        return "OrderedDefaultDict(%s, %s)" % (
+            self.default_factory,
+            OrderedDict.__repr__(self),
+        )
 
 
 def dict_transform(src, fields, default=None):
@@ -70,10 +71,3 @@ def filter_keys(d, keys=None):
     """
     keys = set(keys or [])
     return {k: v for k, v in d.items() if k in keys}
-
-def deep_merge(*dicts):
-    ret = {}
-    for d in dicts:
-        pass
-
-

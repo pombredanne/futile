@@ -17,7 +17,7 @@ class TokenBucket:
         self.rate = rate
 
         self.tokens = 0  # 当前桶中的令牌数量
-        self.last_run_time = 0  # 上次获取令牌时间
+        self.last_run_time = 0  # 上次获取令牌时间, 这样会使初始化时候桶是满的
         self.lock = threading.Lock()
 
     def _update_tokens(self) -> None:

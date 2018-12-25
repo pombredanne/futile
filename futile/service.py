@@ -54,21 +54,20 @@ def script_init(
         description=description,
         restart_interval=restart_interval,
     )
-    kv_client = make_redis_client()
     # kv_client.zadd("inf:script_info", time.time(), json.dumps(script_meta))
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--port", type=int, help="Port to use for this service")
+    parser.add_argument("--port", type=int, help="Port to use for this service")
+    parser.add_argument("--dry-run", action="store_true", default=False, help="Dry run")
+    # deprecated
     parser.add_argument(
-        "-d", "--dry-run", action="store_true", default=False, help="Dry run"
-    )
-    parser.add_argument(
-        "-o",
         "--online",
         action="store_true",
         default=False,
         help="whether this is an online environment",
     )
+    parser.add_argument("--env", help="Environment to use")
+    parser.add_argument("--db-env", help="Database environment to use")
     parser.add_argument("--console-log-level", default="info", help="console log level")
     parser.add_argument("--file-log-level", default="info", help="file log level")
     if add_args:
@@ -255,25 +254,31 @@ class GrpcConnection:
     def __getattr__(self, attr):
         def wrapped(**kwargs):
             # prep the request
-            request_classname = attr + "Request"
-            Request = getattr(self._messagelib, request_classname)
-            req = Request()
-            for k, v in kwargs.items():
-                if isinstance(v, list):
-                    getattr(req, k).extend(v)
-                elif isinstance(v, dict):
-                    getattr(req, k).update(v)
-                elif isinstance(v, Message):
-                    getattr(req, k).CopyFrom(v)
-                else:
-                    setattr(req, k, v)
+            try:
+                request_classname = attr + "Request"
+                Request = getattr(self._messagelib, request_classname)
+                req = Request()
+                for k, v in kwargs.items():
+                    if isinstance(v, list):
+                        getattr(req, k).extend(v)
+                    elif isinstance(v, dict):
+                        getattr(req, k).update(v)
+                    elif isinstance(v, Message):
+                        getattr(req, k).CopyFrom(v)
+                    else:
+                        setattr(req, k, v)
 
-            if self._stub is None:
-                self.connect()
+                if self._stub is None:
+                    self.connect()
 
-            # call the server
-            rsp = getattr(self._stub, attr)(req)
-            return rsp
+                # call the server
+                rsp = getattr(self._stub, attr)(req)
+                return rsp
+            except Exception as e:
+                self._logger.exception(
+                    "call % error, args=%s, error=%s", attr, kwargs, e
+                )
+                raise
 
         return wrapped
 

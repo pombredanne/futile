@@ -33,7 +33,7 @@ True
 
 import calendar
 import datetime
-import re
+import regex as re
 
 __all__ = [
     "CronExpression",

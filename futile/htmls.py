@@ -6,14 +6,18 @@
 some functions on html parsing
 """
 
-import re
+import regex as re
 import lxml.html
 
 from futile.encoding import smart_decode
 
 
-def build_doc(page, url=None, encoding=None, fragment=False):
-    """build lxml doc from bytes or unicode"""
+def build_doc(page, url=None, encoding=None, fragment=False, make_links_absolute=False):
+    """
+    build lxml doc from bytes or unicode
+
+    make_links_absolute 大概和建树是一样的时间, 太影响性能了, 默认关闭
+    """
     if isinstance(page, bytes):
         if not encoding:
             _, page = smart_decode(page)
@@ -25,7 +29,7 @@ def build_doc(page, url=None, encoding=None, fragment=False):
     else:
         doc = lxml.html.document_fromstring(page)
     doc.resolve_base_href(handle_failures='ignore')
-    if url is not None:
+    if url is not None and make_links_absolute:
         doc.make_links_absolute(url)
     return doc
 

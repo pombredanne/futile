@@ -16,7 +16,7 @@ __all__ = [
     "normalize_url",
 ]
 
-import re
+import regex as re
 import os
 import json
 import requests

@@ -1,6 +1,6 @@
 # coding: utf-8
 
-import re
+import regex as re
 import array
 from math import ceil
 from ctypes import c_longlong, c_ulonglong

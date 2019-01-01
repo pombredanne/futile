@@ -3,7 +3,6 @@ import time
 import random
 import grpc
 import importlib
-import json
 import argparse
 import threading
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
@@ -54,22 +53,16 @@ def script_init(
         description=description,
         restart_interval=restart_interval,
     )
-    # kv_client.zadd("inf:script_info", time.time(), json.dumps(script_meta))
+    # TODO store script meta to consule
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, help="Port to use for this service")
     parser.add_argument("--dry-run", action="store_true", default=False, help="Dry run")
-    # deprecated
-    parser.add_argument(
-        "--online",
-        action="store_true",
-        default=False,
-        help="whether this is an online environment",
-    )
     parser.add_argument("--env", help="Environment to use")
     parser.add_argument("--db-env", help="Database environment to use")
     parser.add_argument("--console-log-level", default="info", help="console log level")
     parser.add_argument("--file-log-level", default="info", help="file log level")
+
     if add_args:
         add_args(parser)
 

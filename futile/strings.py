@@ -1,13 +1,18 @@
 # coding: utf-8
 
+import hashlib
 import regex as re
-import json
+import ujson as json
 
 try:
     import cchardet as chardet
 except ImportError:
     import chardet
 from .array import compact
+
+
+def md5(s):
+    return hashlib.md5(ensure_bytes(s)).hexdigest()
 
 
 def expand(raw):

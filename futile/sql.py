@@ -147,11 +147,12 @@ class MysqlDatabase:
     def connect(self):
         self._client = mysql.connect(**self._connect_params)
 
-    def query(self, stmt):
+    def query(self, stmt, commit=True):
         conn = self._client.connection()
         cursor = conn.cursor(mysql.cursors.DictCursor)
         cursor.execute(stmt)
-        conn.commit()
+        if commit:
+            conn.commit()
         return cursor
 
     def create_table(self, table, fields, indexes=None, unique=None):

@@ -46,15 +46,15 @@ def chunked(chunk_size, iterable, len_func=len):
     """
     数组切片，每个切片的大小是 chunk_size
 
-    >>> list(chunked(['a', 'b', 'c', 'd'], 2))
+    >>> list(chunked(2, ['a', 'b', 'c', 'd']))
     [['a', 'b'], ['c', 'd']]
-    >>> list(chunked(['a', 'b', 'c', 'd'], 3))
+    >>> list(chunked(3, ['a', 'b', 'c', 'd']))
     [['a', 'b', 'c'], ['d']]
-    >>> list(chunked([], 1))
+    >>> list(chunked(1, []))
     []
-    >>> list(chunked((i for i in range(5)), 2))
+    >>> list(chunked(2, (i for i in range(5))))
     [[0, 1], [2, 3], [4]]
-    >>> list(chunked((i for i in range(4)), 2))
+    >>> list(chunked(2, (i for i in range(4))))
     [[0, 1], [2, 3]]
     """
     if hasattr(iterable, "__getitem__"):
@@ -234,10 +234,17 @@ def take(iterable, n):
     """
     >>> list(take(range(5), 1))
     [0]
+    >>> def infinite():
+    ...     while True:
+    ...         yield 1
+    >>> list(take(infinite(), 5))
+    [1, 1, 1, 1, 1]
     """
     for i, e in enumerate(iterable):
         if i < n:
             yield e
+        else:
+            return
 
 
 def unique(iterable, key=lambda x: x):

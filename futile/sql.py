@@ -139,13 +139,23 @@ class ConnectionPool:
             connection.disconnect()
 
 
+def insert_or_update(table, defaults, **where):
+    """
+    insert into table (key_list) values (value_list) on duplicate key update (value_list)
+    """
+    insertion = {**defaults, **where}
+    fields = ",".join(map(_quote_key, insertion.keys()))
+    values = ",".join([_quote(v) for v in insertion.values()])
+    updates = _dict2str(defaults)
+    tmpl = "insert into %s (%s) values (%s) on duplicate key update %s"
+    stmt = tmpl % (table, fields, values, updates)
+    return stmt
+
+
 class MysqlDatabase:
     def __init__(self, client, dry_run=False):
         self._client = client
         self._dry_run = dry_run
-
-    def connect(self):
-        self._client = mysql.connect(**self._connect_params)
 
     def query(self, stmt, commit=True):
         conn = self._client.connection()
@@ -154,6 +164,10 @@ class MysqlDatabase:
         if commit:
             conn.commit()
         return cursor
+
+    def begin(self):
+        conn = self._client.connection()
+        conn.begin()
 
     def create_table(self, table, fields, indexes=None, unique=None):
         sql = [

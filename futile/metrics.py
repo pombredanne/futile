@@ -119,6 +119,8 @@ class MetricsEmitter:
             )
             sys.stderr.flush()
         points = self._accumulate_points(self.pending_points)
+        if self.batch:
+            points.extend(self.batch)
         if _debug:
             sys.stderr.write(
                 "final points %s\n" % json.dumps(self.pending_points, indent=4)

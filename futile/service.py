@@ -5,13 +5,16 @@ import grpc
 import importlib
 import argparse
 import threading
+import signal
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from typing import List, Any
 from queue import Queue, LifoQueue, Full, Empty
 from google.protobuf.message import Message
 
+from .number import ensure_int
 from .log import get_logger, init_log
 from .strings import pascal_case
+from .timeutil import parse_time_string
 from .signals import handle_exit
 from .consul import lookup_service
 from .cache import ExpiringLruCache
@@ -39,13 +42,15 @@ def script_init(
     maintainers: List[str],
     conf_file: str = None,
     description: str = None,
-    restart_interval: int = 3600 * 24 * 3,
+    restart_interval: str = "7d",
     service: bool = False,
     add_args: Any = None,
+    no_argparse: bool = False,
 ):
     """
     初始化一个脚本
     """
+    logger = get_logger("script_init")
     script_meta = dict(
         script_name=script_name,
         script_type="service" if service else "script",
@@ -54,6 +59,13 @@ def script_init(
         restart_interval=restart_interval,
     )
     # TODO store script meta to consule
+
+    logger.info("set restart interval to %s", restart_interval)
+    restart = parse_time_string(restart_interval)
+    signal.alarm(ensure_int(restart * random.randint(90, 110) / 100))
+
+    if no_argparse:
+        return None
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, help="Port to use for this service")
@@ -72,6 +84,7 @@ def script_init(
         console_level=args.console_log_level,
         file_level=args.file_log_level,
     )
+
     return args
 
 

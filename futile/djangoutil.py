@@ -12,3 +12,4 @@ def ensure_db_connection(fn):
         except OperationalError:
             close_old_connections()
             fn(*args, **kwargs)
+    return wrapped

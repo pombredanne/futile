@@ -164,7 +164,9 @@ class MetricsEmitter:
         if timestamp is None:
             timestamp = int(time.time() * 1000)
         # TODO 这里应该再加入一些基础信息到 tags 中, 比如 IP 什么的
-        tags["hostname"] = self.hostname
+        # 支持自定义hostname
+        if "hostname" not in tags:
+            tags["hostname"] = self.hostname
         point = dict(measurement=measurement, tags=tags, fields=fields, time=timestamp)
         if self.tagkv:
             for tagk, tagv in tags.items():

@@ -18,7 +18,6 @@ from futile.log import get_logger
 from futile.queues import queue_mget
 from futile.process import run_process
 
-
 _inited_pid = None
 _metrics_queue = mp.Queue()
 _debug = False
@@ -31,7 +30,7 @@ _emitter = None
 
 
 class MetricsEmitter:
-    def __init__(self, influxdb, prefix, *, batch_size=1024, max_timer_seq=128):
+    def __init__(self, influxdb, prefix, *, batch_size=1024, max_timer_seq=128, emit_interval=60):
         self.pending_timestamp = 0
         self.pending_points = []
         self.batch = []
@@ -42,6 +41,10 @@ class MetricsEmitter:
         self.max_timer_seq = max_timer_seq
         self.lock = threading.Lock()
         self.hostname = socket.gethostname()
+        # 上次提交时间
+        self.last_emit_ts = time.time()
+        # 提交间隔
+        self.emit_interval = emit_interval
 
     def define_tagkv(self, tagk, tagvs):
         self.tagkv[tagk] = set(tagvs)
@@ -102,8 +105,17 @@ class MetricsEmitter:
         self.pending_timestamp = point["time"]
         self.pending_points = [point]
         self.batch.extend(points)
-        if len(self.batch) < self.batch_size:
+        # 判断是否需要提交点 1、数量 2、间隔
+        _emit_flag = 0
+        if len(self.batch) >= self.batch_size:
+            _emit_flag = 1
+        if not _emit_flag:
+            if time.time() - self.last_emit_ts > self.emit_interval:
+                _emit_flag = 1
+        if not _emit_flag:
             return []
+        #
+        self.last_emit_ts = time.time()
         if _debug:
             sys.stderr.write("%s got %s point" % (time.time(), len(self.batch)))
             sys.stderr.write(json.dumps(points, indent=4) + "\n")
@@ -133,6 +145,10 @@ class MetricsEmitter:
                 except Exception as e:
                     sys.stderr.write("%s error writing points" % time.time())
                     sys.stderr.flush()
+        try:
+            self.influxdb.close()
+        except:
+            pass
 
     def get_point(self, measurement, tags, fields, timestamp=None):
         if measurement is None:
@@ -157,12 +173,12 @@ class MetricsEmitter:
         return point
 
     def get_counter_point(
-        self,
-        key: str = None,
-        count: int = 1,
-        tags: dict = None,
-        measurement: str = None,
-        timestamp: int = None,
+            self,
+            key: str = None,
+            count: int = 1,
+            tags: dict = None,
+            measurement: str = None,
+            timestamp: int = None,
     ):
         """
         counter 不能被覆盖
@@ -182,12 +198,12 @@ class MetricsEmitter:
         return point
 
     def get_store_point(
-        self,
-        key: str = None,
-        value: Any = 0,
-        tags: dict = None,
-        measurement: str = None,
-        timestamp=None,
+            self,
+            key: str = None,
+            value: Any = 0,
+            tags: dict = None,
+            measurement: str = None,
+            timestamp=None,
     ):
         if measurement is None:
             measurement = self.prefix + ".store"
@@ -203,12 +219,12 @@ class MetricsEmitter:
         return point
 
     def get_timer_point(
-        self,
-        key: str = None,
-        duration: float = 0,
-        tags: dict = None,
-        measurement: str = None,
-        timestamp=None,
+            self,
+            key: str = None,
+            duration: float = 0,
+            tags: dict = None,
+            measurement: str = None,
+            timestamp=None,
     ):
         """
         延迟数据需要统计 pct99 等, 不能彼此覆盖
@@ -282,21 +298,20 @@ def _emit_loop():
 
 
 def init(
-    *,
-    influxdb_host=None,
-    influxdb_port=8086,
-    influxdb_udp_port=8089,
-    influxdb_database=None,
-    prefix=None,
-    batch_size=1024,
-    debug=False,
-    directly=False,
-    use_thread=False,
-    use_udp=False,
-    timeout=10,
-    **kwargs,
+        *,
+        influxdb_host=None,
+        influxdb_port=8086,
+        influxdb_udp_port=8089,
+        influxdb_database=None,
+        prefix=None,
+        batch_size=1024,
+        debug=False,
+        directly=False,
+        use_thread=False,
+        use_udp=False,
+        timeout=10,
+        **kwargs,
 ):
-
     if prefix is None:
         raise ValueError("Metric prefix not set")
 

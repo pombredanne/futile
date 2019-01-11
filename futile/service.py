@@ -312,9 +312,23 @@ class GrpcClient:
             connection_class=GrpcConnection,
             timeout=timeout,
         )
+        self._ip = ip
+        self._port = port
 
     def broadcast(self, method, **kwargs):
-        connections = GrpcConnection.connect_all(self._service_name, self._service_idl)
+        if self._ip:
+            connections = [
+                GrpcConnection(
+                    service_name=self._service_name,
+                    service_idl=self._service_idl,
+                    ip=self._ip,
+                    port=self._port,
+                )
+            ]
+        else:
+            connections = GrpcConnection.connect_all(
+                self._service_name, self._service_idl
+            )
         ret = []
         for connection in connections:
             ret.append(getattr(connection, method)(**kwargs))

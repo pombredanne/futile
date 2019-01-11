@@ -20,6 +20,8 @@ import logging
 import pickle
 from multiprocessing.pool import Pool
 
+from .timeutil import parse_time_string
+
 
 def keep_run(exception_sleep=10):
     """
@@ -85,8 +87,14 @@ def before(n):
 
 def throttle(wait=0, error_wait=0):
 
-    cache_time = None
+    cache_time = None  # 存在则表示已经有过缓存了
     cache_value = None
+
+    if isinstance(wait, str):
+        wait = parse_time_string(wait)
+
+    if isinstance(error_wait, str):
+        error_wait = parse_time_string(error_wait)
 
     def decorate(fn):
         @wraps(fn)
@@ -256,6 +264,14 @@ if __name__ == "__main__":
     @before(2)
     def hello_before():
         print("hello before 2")
+
+    @throttle(wait=1)
+    def throttled():
+        return time.time()
+
+    while True:
+        print(throttled())
+        time.sleep(.1)
 
     print("first time")
     hello_after()

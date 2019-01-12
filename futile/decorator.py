@@ -14,10 +14,11 @@ __all__ = [
 
 import time
 import sys
-from functools import wraps
 import threading
 import logging
 import pickle
+
+from functools import wraps
 from multiprocessing.pool import Pool
 
 from .timeutil import parse_time_string
@@ -89,6 +90,7 @@ def throttle(wait=0, error_wait=0):
 
     cache_time = None  # 存在则表示已经有过缓存了
     cache_value = None
+    cache_lock = threading.Lock()
 
     if isinstance(wait, str):
         wait = parse_time_string(wait)
@@ -101,16 +103,21 @@ def throttle(wait=0, error_wait=0):
         def wrapped(*args, **kwargs):
             nonlocal cache_time
             nonlocal cache_value
-            if cache_time and time.time() - cache_time < wait and cache_value:
+            if cache_time and time.time() - cache_time < wait:
                 return cache_value
-            cache_time = time.time()
-            try:
-                cache_value = fn(*args, **kwargs)
-            except:
-                cache_time = time.time() - wait + error_wait
-                raise
-            return cache_value
+            with cache_lock:
+                if cache_time and time.time() - cache_time < wait:
+                    return cache_value
+                cache_time = time.time()
+                try:
+                    cache_value = fn(*args, **kwargs)
+                except Exception:
+                    cache_time = time.time() - wait + error_wait
+                    raise
+                return cache_value
+
         return wrapped
+
     return decorate
 
 
@@ -271,7 +278,7 @@ if __name__ == "__main__":
 
     while True:
         print(throttled())
-        time.sleep(.1)
+        time.sleep(0.1)
 
     print("first time")
     hello_after()

@@ -14,14 +14,13 @@ __all__ = [
     "get_domain",
     "get_main_domain",
     "normalize_url",
+    "is_valid_url",
 ]
 
-import regex as re
 import os
-import json
-import requests
-from ..file import read_list_from_file
-from ..strings import ensure_str
+import logging
+import regex as re
+import ujson as json
 from urllib.parse import (
     quote as urlquote,
     unquote as urlunquote,
@@ -31,16 +30,19 @@ from urllib.parse import (
     parse_qsl,
 )
 
+from futile.file import read_list_from_file
+from futile.strings import ensure_str
+
 PUBLIC_SUFFIX_FILE = os.path.join(os.path.dirname(__file__), "public_suffix.dat")
 PUBLIC_SUFFIX = set(read_list_from_file(PUBLIC_SUFFIX_FILE, comment="//"))
 
 
-def depack_jsonp(jsonp):
+def depack_jsonp(jsonp: str) -> dict:
     """
     return json dict str from a jsonp str, if not found, return None
 
     >>> print(depack_jsonp('json_callback({"a": "b"})'))
-    '{"a": "b"}'
+    {"a": "b"}
     >>> print(depack_jsonp(''))
     None
     """
@@ -53,6 +55,8 @@ def depack_jsonp(jsonp):
 
 
 def _download(url):
+    import requests
+
     return requests.get(url).text
 
 
@@ -188,7 +192,7 @@ def normalize_url(
     >>> normalize_url('http://google.com')
     'http://google.com/'
     >>> normalize_url('HTTPS://User:Pass@Google.com:80')
-    'https://User:Pass@google.com/'
+    'https://User:Pass@google.com:80/'
     >>> normalize_url('http://google.com/foo/bar/../')
     'http://google.com/foo/'
     >>> normalize_url('http://google.com/foo')
@@ -205,7 +209,7 @@ def normalize_url(
     'http://google.com/?a=a&b=a'
     >>> normalize_url('google.com/a/b/../?b=a&a=a')
     'http://google.com/a/?a=a&b=a'
-    >>> normalize_url('google.com/?a=a&spam=shit', remove_params=['spam'])
+    >>> normalize_url('google.com/?a=a&spam=shit', drop_params=['spam'])
     'http://google.com/?a=a'
     >>> normalize_url('http://google.com/a/b/c/d/e')
     'http://google.com/a/b/c/d/e'
@@ -213,6 +217,13 @@ def normalize_url(
     'http://weaweadsf:asdfasdfasdf'
     """
     try:
+        if url.startswith("//"):
+            url = "http:" + url
+
+        lower = url.lower()
+        if not lower.startswith('http://') and not lower.startswith("https://"):
+            url = "http://" + url
+
         u = urlsplit(url)
 
         # 1. scheme
@@ -272,7 +283,49 @@ def normalize_url(
 
         return urlunsplit([scheme, netloc, path, query, fragment])
     except Exception as e:
-        raise Exception("url=%s normalize failed" % url) from e
+        logging.exception("normalize url failed, url=%s", url)
+        return url
+
+
+url_pattern = re.compile(r"^(?:http(s)?:\/\/)[\w.-]+(?:\.[\w\.-]+)\/?.*?$", flags=re.I)
+
+
+def is_valid_url(url: str):
+    """
+    check if given url is a valid *absolute* url
+
+    >>> is_valid_url("javascript:")
+    False
+    >>> is_valid_url("http:///")
+    False
+    >>> is_valid_url("https://www.example.com")
+    True
+    >>> is_valid_url("http://www.example.com")
+    True
+    >>> is_valid_url("www.example.com")
+    False
+    >>> is_valid_url("example.com")
+    False
+    >>> is_valid_url("http://10.3.3.3:1212121212")
+    True
+    >>> is_valid_url("http://blog.example.com/")
+    True
+    >>> is_valid_url("http://www.example.com/product")
+    True
+    >>> is_valid_url("http://www.example.com/products?id=1&page=2")
+    True
+    >>> is_valid_url("http://www.example.com#up")
+    True
+    >>> is_valid_url("http://255.255.255.255")
+    True
+    >>> is_valid_url("255.255.255.255")
+    False
+    >>> is_valid_url("http://invalid.com/perl.cgi?key= | http://web-site.com/cgi-bin/perl.cgi?key1=value1&key2")
+    True
+    >>> is_valid_url("http://www.site.com:8008")
+    True
+    """
+    return bool(url_pattern.match(url))
 
 
 if __name__ == "__main__":

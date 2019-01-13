@@ -6,9 +6,10 @@ import importlib
 import argparse
 import threading
 import signal
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import socket
+from queue import LifoQueue, Empty, Full
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Any
-from queue import Queue, LifoQueue, Full, Empty
 from google.protobuf.message import Message
 
 from .number import ensure_int
@@ -16,7 +17,7 @@ from .log import get_logger, init_log
 from .strings import pascal_case
 from .timeutil import parse_time_string
 from .signals import handle_exit
-from .consul import lookup_service
+from .consul import lookup_service as consul_lookup_service
 from .cache import ExpiringLruCache
 from .redis import make_redis_client
 from .timer import timing
@@ -34,6 +35,15 @@ class ConnectionError(Exception):
 
 class TimeoutError(Exception):
     pass
+
+
+def lookup_service(service_name):
+    if os.getenv("IS_K8S_ENV"):
+        ip = socket.gethostbyname(service_name)
+        port = os.getenv("K8S_PORT0")
+        return [(ip, port)]
+    else:
+        return consul_lookup_service(service_name)
 
 
 def script_init(
@@ -370,19 +380,7 @@ def make_client2(service_name, *, service_idl=None, conf=None, **kwargs):
 
 # deprecated
 def make_client(service_name, client_stub, *args, **kwargs):
-
-    endpoints = lookup_service(service_name)
-    server_address = random.choice(endpoints)
-    gigabyte = 1024 ** 3
-    channel = grpc.insecure_channel(
-        f"{server_address[0]}:{server_address[1]}",
-        options=[
-            ("grpc.max_send_message_length", gigabyte),
-            ("grpc.max_receive_message_length", gigabyte),
-        ],
-    )
-    stub = client_stub(channel)
-    return stub
+    pass
 
 
 class MetricsInterceptor(grpc.ServerInterceptor):
@@ -437,8 +435,6 @@ def run_service2(
         executor = ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="worker"
         )
-    elif server_type == "process":
-        executor = ProcessPoolExecutor(max_workers=max_workers)
     elif server_type == "asyncio":
         from .grpc.executor import AsyncioExecutor
 

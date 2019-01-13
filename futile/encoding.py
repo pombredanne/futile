@@ -10,7 +10,7 @@ __all__ = ["smart_decode"]
 
 import regex as re
 import sys
-from .strings import ensure_str
+from futile.strings import ensure_str
 
 try:
     import cchardet as chardet
@@ -46,7 +46,7 @@ def fix_charset(encoding):
     return CHARSETS.get(encoding, encoding)
 
 
-def smart_decode(page, hint="utf-8"):
+def smart_decode(page, hint=None):
     """
     get the encoding of give page, and the decoded page
 
@@ -65,6 +65,14 @@ def smart_decode(page, hint="utf-8"):
             # Now let's decode the page
             decoded_page = page.decode(encoding=encoding)
             # It worked!
+            return encoding, decoded_page
+        except UnicodeDecodeError:
+            pass
+
+    if hint:
+        try:
+            encoding = fix_charset(hint)
+            decoded_page = page.decode(encoding=encoding)
             return encoding, decoded_page
         except UnicodeDecodeError:
             pass

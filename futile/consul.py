@@ -1,6 +1,7 @@
 from functools import lru_cache
 from consul import Consul
-from .net import get_local_ip
+
+from futile.net import get_local_ip
 
 
 def lookup_service(service_name):

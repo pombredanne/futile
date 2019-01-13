@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
 This is actually the tqdm library, https://github.com/noamraph/tqdm, which is
 MIT licensed.

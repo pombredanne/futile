@@ -26,117 +26,12 @@ def _dict2str(dictin, joiner=", "):
         if isinstance(v, (list, tuple)):
             part = f"`{k}` in ({','.join(map(_quote, v))})"
         else:
-            part = f"`{k}`={_quote(v)}"
+            if v is None:
+                part = f"`{k}` is null"
+            else:
+                part = f"`{k}`={_quote(v)}"
         sql.append(part)
     return joiner.join(sql)
-
-
-class Connection:
-    def execute(self, query):
-        self.conn.ping(True)
-        self.cursor.execute(query)
-        return self.cursor.fetchall()
-
-
-class ConnectionPool:
-    def __init__(
-        self,
-        max_connections=50,
-        timeout=20,
-        connection_factory=None,
-        queue_class=LifoQueue,
-        **connection_kwargs,
-    ):
-        self.max_connections = max_connections
-        self.connection_factory = connection_factory
-        self.queue_class = queue_class
-        self.timeout = timeout
-
-        self.reset()
-
-    def _checkpid(self):
-        if self.pid != os.getpid():
-            with self._check_lock:
-                if self.pid == os.getpid():
-                    # another thread already did the work while we waited on the lock.
-                    return
-                self.disconnect()
-                self.reset()
-
-    def reset(self):
-        self.pid = os.getpid()
-        self._check_lock = threading.Lock()
-
-        # Create and fill up a thread safe queue with ``None`` values.
-        self.pool = self.queue_class(self.max_connections)
-        while True:
-            try:
-                self.pool.put_nowait(None)
-            except Full:
-                break
-
-        # Keep a list of actual connection instances so that we can
-        # disconnect them later.
-        self._connections = []
-
-    def make_connection(self):
-        """Make a fresh connection."""
-        connection = self.connection_factory(**self.connection_kwargs)
-        self._connections.append(connection)
-        return connection
-
-    def get_connection(self, command_name, *keys, **options):
-        """
-        Get a connection, blocking for ``self.timeout`` until a connection
-        is available from the pool.
-        If the connection returned is ``None`` then creates a new connection.
-        Because we use a last-in first-out queue, the existing connections
-        (having been returned to the pool after the initial ``None`` values
-        were added) will be returned before ``None`` values. This means we only
-        create new connections when we need to, i.e.: the actual number of
-        connections will only increase in response to demand.
-        """
-        # Make sure we haven't changed process.
-        self._checkpid()
-
-        # Try and get a connection from the pool. If one isn't available within
-        # self.timeout then raise a ``ConnectionError``.
-        connection = None
-        try:
-            connection = self.pool.get(block=True, timeout=self.timeout)
-        except Empty:
-            # Note that this is not caught by the redis client and will be
-            # raised unless handled by application code. If you want never to
-            raise ConnectionError("No connection available.")
-
-        # If the ``connection`` is actually ``None`` then that's a cue to make
-        # a new connection to add to the pool.
-        if connection is None:
-            connection = self.make_connection()
-
-        return connection
-
-    def release(self, connection):
-        """
-        Releases the connection back to the pool.
-        """
-        # Make sure we haven't changed process.
-        self._checkpid()
-        if connection.pid != self.pid:
-            return
-
-        # Put the connection back into the pool.
-        try:
-            self.pool.put_nowait(connection)
-        except Full:
-            # perhaps the pool has been reset() after a fork? regardless,
-            # we don't want this connection
-            pass
-
-    def disconnect(self):
-        "Disconnects all connections in the pool."
-        for connection in self._connections:
-            connection.disconnect()
 
 
 def insert_or_update(table, defaults, **where):
@@ -150,6 +45,24 @@ def insert_or_update(table, defaults, **where):
     tmpl = "insert into %s (%s) values (%s) on duplicate key update %s"
     stmt = tmpl % (table, fields, values, updates)
     return stmt
+
+
+def select(table, keys="*", where=None, limit=None, offset=None):
+    if isinstance(keys, (tuple, list)):
+        keys = ",".join(keys)
+    tmpl = "select %s from %s"
+    sql = [tmpl % (keys, table)]
+    if where:
+        sql.append("where")
+        sql.append(_dict2str(where, " and "))
+    if limit:
+        sql.append("limit")
+        sql.append(str(limit))
+    if offset:
+        sql.append("offset")
+        sql.append(str(offset))
+
+    return " ".join(sql)
 
 
 class MysqlDatabase:
@@ -208,15 +121,7 @@ class MysqlDatabase:
             return self.query(stmt)
 
     def insert_or_update(self, table, defaults, **where):
-        """
-        insert into table (key_list) values (value_list) on duplicate key update (value_list)
-        """
-        insertion = {**defaults, **where}
-        fields = ",".join(map(_quote_key, insertion.keys()))
-        values = ",".join([_quote(v) for v in insertion.values()])
-        updates = _dict2str(defaults)
-        tmpl = "insert into %s (%s) values (%s) on duplicate key update %s"
-        stmt = tmpl % (table, fields, values, updates)
+        stmt = insert_or_update(table, defaults, **where)
         if self._dry_run:
             print(stmt)
         else:
@@ -241,22 +146,7 @@ class MysqlDatabase:
             return self.query(stmt)
 
     def select(self, table, keys="*", where=None, limit=None, offset=None):
-        if isinstance(keys, (tuple, list)):
-            keys = ",".join(keys)
-        tmpl = "select %s from %s"
-        sql = [tmpl % (keys, table)]
-        if where:
-            sql.append("where")
-            sql.append(_dict2str(where, " and "))
-        if limit:
-            sql.append("limit")
-            sql.append(str(limit))
-        if offset:
-            sql.append("offset")
-            sql.append(str(offset))
-
-        stmt = " ".join(sql)
-
+        stmt = select(table, keys, where, limit, offset)
         if self._dry_run:
             print(stmt)
         else:

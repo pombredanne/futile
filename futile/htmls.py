@@ -6,7 +6,10 @@
 some functions on html parsing
 """
 
-import regex as re
+try:
+    import regex as re
+except ImportError:
+    import re
 import lxml.html
 
 from futile.encoding import smart_decode

@@ -8,7 +8,10 @@ This module is taken from the python-readability lib, which is Apache Licensed
 
 __all__ = ["smart_decode"]
 
-import regex as re
+try:
+    import regex as re
+except ImportError:
+    import re
 import sys
 from futile.strings import ensure_str
 

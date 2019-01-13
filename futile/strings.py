@@ -1,8 +1,14 @@
 # coding: utf-8
 
 import hashlib
-import regex as re
-import ujson as json
+try:
+    import regex as re
+except ImportError:
+    import re
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 try:
     import cchardet as chardet

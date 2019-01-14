@@ -37,6 +37,10 @@ class TimeoutError(Exception):
     pass
 
 
+def is_k8s_env():
+    return os.getenv("IS_K8S_ENV")
+
+
 def lookup_service(service_name):
     if os.getenv("IS_K8S_ENV"):
         ip = socket.gethostbyname(service_name)

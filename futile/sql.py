@@ -1,10 +1,97 @@
 import os
 import threading
-from datetime import datetime
+import logging
+from functools import wraps
 import MySQLdb as mysql
-from queue import LifoQueue, Full, Empty
-from DBUtils.PersistentDB import PersistentDB
+from contextlib import contextmanager
+
 from futile.strings import ensure_str
+from futile.log import get_logger
+from futile.connection_pool import ConnectionPool
+
+
+class MysqlConnection:
+    """
+    not thread safe, use connection pool to maintain thread-safety
+    """
+
+    def __init__(self, host, port, user, passwd, db):
+        self._host = host
+        self._port = port
+        self._username = user
+        self._password = passwd
+        self._db = db
+        self._logger = get_logger("mysql_connection")
+        self.pid = os.getpid()
+
+        self._connection = None
+
+    def connect(self):
+        if self._connection:
+            return
+        connection = mysql.connect(
+            self._host, self._port, self._username, self._password, charset="utf8mb4"
+        )
+        self._connection = connection
+
+    def disconnect(self):
+        if self._connection:
+            try:
+                self._connection.close()
+            except Exception:
+                pass
+            self._connection = None
+
+    def __getattr__(self, attr):
+        def wrapped(*args, **kwargs):
+            if self._connection is None:
+                self.connect()
+            return getattr(self._connection, attr)(*args, **kwargs)
+
+        return wrapped
+
+
+class MysqlClient:
+    """
+    虽然还是没有保证每次执行都能够成功, 但是至少每次拿出的都是一个可以使用的链接,
+    不会产生一直都出错的情况
+    """
+    def __init__(self, host, port, user, passwd, db):
+        self._host = host
+        self._port = port
+        self._user = user
+        self._passwd = passwd
+        self._db = db
+        self._logger = get_logger("mysql_client")
+        self._connection_pool = ConnectionPool(
+            connection_class=MysqlConnection,
+            host=host,
+            port=port,
+            user=user,
+            passwd=passwd,
+            db=db
+        )
+
+    def query(self, stmt):
+        with self.transaction() as conn:
+            cursor = conn.cursor(mysql.cursors.DictCursor)
+            cursor.execute(stmt)
+            return cursor
+
+    @contextmanager
+    def transaction(self):
+        connection = self._connection_pool.get_connection()
+        try:
+            # TODO begin 的时候会引起 Error 吗?
+            connection.begin()
+        except mysql.OperationalError:
+            connection.disconnect()
+            connection.begin()
+        try:
+            yield connection
+        finally:
+            connection.commit()
+            self._connection_pool.release(connection)
 
 
 class ConnectionError(Exception):
@@ -77,10 +164,6 @@ class MysqlDatabase:
         if commit:
             conn.commit()
         return cursor
-
-    def begin(self):
-        conn = self._client.connection()
-        conn.begin()
 
     def create_table(self, table, fields, indexes=None, unique=None):
         sql = [

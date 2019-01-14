@@ -10,13 +10,13 @@ def parse_time_string(s):
     86401
     """
     bases = {
-        'y': 86400 * 365,
-        'm': 86400 * 30,
-        'w': 86400 * 7,
-        'd': 86400,
-        'h': 3600,
-        'M': 60,
-        's': 1,
+        "y": 86400 * 365,
+        "m": 86400 * 30,
+        "w": 86400 * 7,
+        "d": 86400,
+        "h": 3600,
+        "M": 60,
+        "s": 1,
     }
     secs = 0
     num = 0
@@ -27,5 +27,3 @@ def parse_time_string(s):
             secs += bases[c] * num
             num = 0
     return secs
-
-

@@ -18,8 +18,8 @@ class MysqlConnection:
     def __init__(self, host, port, user, passwd, db):
         self._host = host
         self._port = port
-        self._username = user
-        self._password = passwd
+        self._user = user
+        self._passwd = passwd
         self._db = db
         self._logger = get_logger("mysql_connection")
         self.pid = os.getpid()
@@ -30,7 +30,11 @@ class MysqlConnection:
         if self._connection:
             return
         connection = mysql.connect(
-            self._host, self._port, self._username, self._password, charset="utf8mb4"
+            self._host,
+            port=self._port,
+            user=self._user,
+            passwd=self._password,
+            charset="utf8mb4",
         )
         self._connection = connection
 
@@ -56,6 +60,7 @@ class MysqlClient:
     虽然还是没有保证每次执行都能够成功, 但是至少每次拿出的都是一个可以使用的链接,
     不会产生一直都出错的情况
     """
+
     def __init__(self, host, port, user, passwd, db):
         self._host = host
         self._port = port
@@ -69,7 +74,7 @@ class MysqlClient:
             port=port,
             user=user,
             passwd=passwd,
-            db=db
+            db=db,
         )
 
     def query(self, stmt):
@@ -82,20 +87,16 @@ class MysqlClient:
     def transaction(self):
         connection = self._connection_pool.get_connection()
         try:
-            # TODO begin 的时候会引起 Error 吗?
-            connection.begin()
-        except mysql.OperationalError:
-            connection.disconnect()
-            connection.begin()
-        try:
+            try:
+                # begin 的时候如果断开了会引起 Error
+                connection.begin()
+            except mysql.OperationalError:
+                connection.disconnect()
+                connection.begin()
             yield connection
-        finally:
             connection.commit()
+        finally:
             self._connection_pool.release(connection)
-
-
-class ConnectionError(Exception):
-    pass
 
 
 def _quote(s):
@@ -123,7 +124,7 @@ def _dict2str(dictin, joiner=", "):
 
 def insert_or_update(table, defaults, **where):
     """
-    insert into table (key_list) values (value_list) on duplicate key update (value_list)
+    insert into table (keys) values (value_list) on duplicate key update (value_list)
     """
     insertion = {**defaults, **where}
     fields = ",".join(map(_quote_key, insertion.keys()))

@@ -30,7 +30,9 @@ _emitter = None
 
 
 class MetricsEmitter:
-    def __init__(self, influxdb, prefix, *, batch_size=1024, max_timer_seq=128, emit_interval=60):
+    def __init__(
+        self, influxdb, prefix, *, batch_size=1024, max_timer_seq=128, emit_interval=60
+    ):
         self.pending_timestamp = 0
         self.pending_points = []
         self.batch = []
@@ -147,7 +149,7 @@ class MetricsEmitter:
                     sys.stderr.flush()
         try:
             self.influxdb.close()
-        except:
+        except Exception:
             pass
 
     def get_point(self, measurement, tags, fields, timestamp=None):
@@ -175,12 +177,12 @@ class MetricsEmitter:
         return point
 
     def get_counter_point(
-            self,
-            key: str = None,
-            count: int = 1,
-            tags: dict = None,
-            measurement: str = None,
-            timestamp: int = None,
+        self,
+        key: str = None,
+        count: int = 1,
+        tags: dict = None,
+        measurement: str = None,
+        timestamp: int = None,
     ):
         """
         counter 不能被覆盖
@@ -200,12 +202,12 @@ class MetricsEmitter:
         return point
 
     def get_store_point(
-            self,
-            key: str = None,
-            value: Any = 0,
-            tags: dict = None,
-            measurement: str = None,
-            timestamp=None,
+        self,
+        key: str = None,
+        value: Any = 0,
+        tags: dict = None,
+        measurement: str = None,
+        timestamp=None,
     ):
         if measurement is None:
             measurement = self.prefix + ".store"
@@ -221,12 +223,12 @@ class MetricsEmitter:
         return point
 
     def get_timer_point(
-            self,
-            key: str = None,
-            duration: float = 0,
-            tags: dict = None,
-            measurement: str = None,
-            timestamp=None,
+        self,
+        key: str = None,
+        duration: float = 0,
+        tags: dict = None,
+        measurement: str = None,
+        timestamp=None,
     ):
         """
         延迟数据需要统计 pct99 等, 不能彼此覆盖
@@ -300,19 +302,19 @@ def _emit_loop():
 
 
 def init(
-        *,
-        influxdb_host=None,
-        influxdb_port=8086,
-        influxdb_udp_port=8089,
-        influxdb_database=None,
-        prefix=None,
-        batch_size=1024,
-        debug=False,
-        directly=False,
-        use_thread=False,
-        use_udp=False,
-        timeout=10,
-        **kwargs,
+    *,
+    influxdb_host=None,
+    influxdb_port=8086,
+    influxdb_udp_port=8089,
+    influxdb_database=None,
+    prefix=None,
+    batch_size=1024,
+    debug=False,
+    directly=False,
+    use_thread=False,
+    use_udp=False,
+    timeout=10,
+    **kwargs,
 ):
     if prefix is None:
         raise ValueError("Metric prefix not set")

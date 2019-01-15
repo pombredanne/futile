@@ -19,8 +19,14 @@ __all__ = [
 
 import os
 import logging
-import regex as re
-import ujson as json
+try:
+    import regex as re
+except ImportError:
+    import re
+try:
+    import ujson as json
+except ImportError:
+    import re
 from urllib.parse import (
     quote as urlquote,
     unquote as urlunquote,

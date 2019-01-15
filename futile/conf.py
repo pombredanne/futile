@@ -2,7 +2,10 @@
 
 import os
 import yaml
-import json
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 from .array import merge_dict
 from .log import get_logger

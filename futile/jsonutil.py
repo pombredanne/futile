@@ -1,6 +1,9 @@
 import json
 import io
-import regex as re
+try:
+    import regex as re
+except ImportError:
+    import re
 
 from .array import compact
 

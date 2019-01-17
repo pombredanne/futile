@@ -1,7 +1,8 @@
 import time
 import logging
 from functools import wraps
-from . import metrics
+
+from futile.metrics2 import TagStatsdClient
 
 
 class Timer:
@@ -16,12 +17,13 @@ class Timer:
         send_metrics=False,
         tags=None,
         parent=None,
+        statsd_client: TagStatsdClient = None,
     ):
         if parent:
             self._task = f"{parent._task}.{task}"
         else:
             self._task = task
-        # rechekc in __enter__
+        # recheck in __enter__
         self._start_time = time.time() * 1000
         self._last_time = self._start_time
         self._enable_log = enable_log
@@ -31,6 +33,7 @@ class Timer:
         if tags is not None:
             self._tags.update(tags)
         self._parent = parent
+        self._statsd_client = statsd_client
 
         self.delays = {}
 
@@ -59,7 +62,7 @@ class Timer:
                 delay / self.get_total() * 100,
             )
         if self._send_metrics:
-            metrics.emit_timer(subtask, delay, tags=self._tags)
+            self._statsd_client.timing(subtask, delay, tags=self._tags)
 
         return delay
 
@@ -74,7 +77,7 @@ class Timer:
             )
         if self._send_metrics:
             tags = {"status": status, **self._tags}
-            metrics.emit_timer("_total", self.get_total(), tags=tags)
+            self._statsd_client.timing("_total", self.get_total(), tags=tags)
 
     def get(self, name):
         return self.delays.get(name, 0)

@@ -148,6 +148,8 @@ class GrpcConnection:
             return
         if not (self._ip and self._port):
             endpoints = lookup_service(self._service_name)
+            if not endpoints:
+                raise RuntimeError("all services are down")
             ip, port = random.choice(endpoints)
         else:
             ip, port = self._ip, self._port
@@ -253,7 +255,9 @@ class GrpcClient:
         return ret
 
     def __getattr__(self, attr):
-        def wrapped(**kwargs):
+        def wrapped(*args, **kwargs):
+            if args:
+                raise ValueError("only kwargs are accepted")
             # 执行每条命令都会调用该方法
             pool = self._connection_pool
             # 弹出一个连接
@@ -316,25 +320,22 @@ def run_service2(
     service_idl: str = None,
     server_type: str = "thread",
     max_workers: int = 4,
+    ip: str = "[::]",
     port: int = None,
-    bind_ip: str = "[::]",
-    should_register: bool = False,  # deprecated
-    should_timing: bool = False,
     logger=None,
     conf=None,
 ):
     """
-    :service_name: service name to register in consul
+    :service_name: service name to register
     :servicer: the service class instance
     :service_idl: the IDL to use for this service
-    :server_type: one of `thread`, `process`, `asyncio`
+    :server_type: one of [`thread`, `asyncio`]
     :max_workers: max worker count for thread and process pools
+    :ip: ip address to bind to
     :port: port to listen on
-    :bind_ip: ip address to bind to
     :should_register: DEPRECATED, whether to register service to consul
-    :should_timing: whether to send metrics automatically
     """
-    assert server_type in ("thread", "process", "asyncio"), "invalid server type"
+    assert server_type in ("thread", "asyncio"), "invalid server type"
     if service_idl is None:
         service_idl = service_name
     if logger is None:
@@ -347,42 +348,37 @@ def run_service2(
         from .grpc.executor import AsyncioExecutor
 
         executor = AsyncioExecutor()
-    if should_timing:
-        interceptors = (MetricsInterceptor(servicer),)
-    else:
-        interceptors = []
-    server = grpc.server(executor, interceptors=interceptors)
+
+    server = grpc.server(executor)
     stublib = importlib.import_module("idl." + service_idl + "_pb2_grpc")
     stub_name = pascal_case(service_idl.split(".")[-1])
     add_to_server = getattr(stublib, f"add_{stub_name}Servicer_to_server")
     add_to_server(servicer, server)
 
-    # if conf is specified, load ip and port from conf file
-    if conf is not None:
-        conf_ip = conf.get(f"{service_name}.ip")
-        conf_port = conf.get(f"{service_name}.port")
+    # 线上环境直接使用 k8s 提供端口
+    if is_k8s_env():
+        port = os.getenv("K8S_PORT0")
     else:
-        conf_ip = None
-        conf_port = None
+        # if conf is specified, load ip and port from conf file
+        if conf is not None:
+            if conf.get(f"{service_name}.ip"):
+                ip = conf.get(f"{service_name}.ip")
+            if conf.get(f"{service_name}.port"):
+                port = conf.get(f"{service_name}.port")
+            else:
+                raise RuntimeError("local port not specified")
+        else:
+            raise RuntimeError("local conf not specified")
 
-    if conf_ip:
-        bind_ip = conf_ip
-
-    if conf_port:
-        port = conf_port
-
-    if port is None and conf_port is None:
-        port = random.randint(5000, 6000)
-
-    server.add_insecure_port(f"{bind_ip}:{port}")
+    server.add_insecure_port(f"{ip}:{port}")
 
     # exit handler
     def exit():
         server.stop(grace=True)
-        logger.info("exiting service %s on %s:%s", service_name, bind_ip, port)
+        logger.info("exiting service %s on %s:%s", service_name, ip, port)
 
     with handle_exit(exit):
-        logger.info("starting service %s on %s:%s", service_name, bind_ip, port)
+        logger.info("starting service %s on %s:%s", service_name, ip, port)
         server.start()
         while True:
             time.sleep(3600)

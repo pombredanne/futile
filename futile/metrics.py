@@ -145,7 +145,10 @@ class MetricsEmitter:
                 try:
                     self.influxdb.write_points(chunk, time_precision="ms")
                 except Exception as e:
-                    sys.stderr.write("%s error writing points" % time.time())
+                    import traceback
+
+                    ex = traceback.format_exc()
+                    sys.stderr.write("%s error writing points %s" % (time.time(), ex))
                     sys.stderr.flush()
         try:
             self.influxdb.close()

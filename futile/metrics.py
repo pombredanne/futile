@@ -1,3 +1,7 @@
+import warnings
+
+warnings.warn("Use StatsD instead", DeprecationWarning, stacklevel=2)
+
 import os
 import json
 import sys

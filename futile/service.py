@@ -148,7 +148,7 @@ class GrpcConnection:
         if not (self._ip and self._port):
             endpoints = lookup_service(self._service_name)
             if not endpoints:
-                raise RuntimeError("all services are down")
+                raise RuntimeError("%s all services are down", self._service_name)
             ip, port = random.choice(endpoints)
         else:
             ip, port = self._ip, self._port

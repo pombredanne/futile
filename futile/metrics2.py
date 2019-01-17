@@ -42,15 +42,18 @@ def init(*, host=None, port=None, prefix=None):
 
 
 def emit_counter(key, value, *, tags=None, rate=1):
-    _emitter.emit_counter(key, value, tags=tags, rate=rate)
+    if _emitter:
+        _emitter.emit_counter(key, value, tags=tags, rate=rate)
 
 
 def emit_timer(key, value, *, tags=None, rate=1):
-    _emitter.emit_timer(key, value, tags=tags, rate=rate)
+    if _emitter:
+        _emitter.emit_timer(key, value, tags=tags, rate=rate)
 
 
 def emit_store(key, value, *, tags=None, rate=1, delta=False):
-    _emitter.emit_timer(key, value, tags=tags, rate=rate, delta=delta)
+    if _emitter:
+        _emitter.emit_timer(key, value, tags=tags, rate=rate, delta=delta)
 
 
 class TagStatsClient:

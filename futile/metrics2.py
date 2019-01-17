@@ -16,7 +16,7 @@ def fmttags(measurement, tags):
 
 
 class MetricsEmitter:
-    def __init__(self, host, port, prefix):
+    def __init__(self, host="localhost", port=8125, prefix=None):
         self._client = statsd.StatsClient(host, port, prefix)
 
     def emit_counter(self, key, value, *, tags=None, rate=1):
@@ -35,9 +35,9 @@ class MetricsEmitter:
 def init(*, host=None, port=None, prefix=None):
     global _emitter
     if host is None:
-        host = os.getenv("STATSD_HOST")
+        host = os.getenv("STATSD_HOST") or "localhost"
     if port is None:
-        port = os.getenv("STATSD_PORT")
+        port = os.getenv("STATSD_PORT") or 8125
     _emitter = MetricsEmitter(host, port, prefix)
 
 

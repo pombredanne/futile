@@ -4,7 +4,6 @@ import random
 import grpc
 import importlib
 import argparse
-import threading
 import signal
 import socket
 from concurrent.futures import ThreadPoolExecutor
@@ -178,21 +177,22 @@ class GrpcConnection:
         self._port = None
 
     def __getattr__(self, attr):
-        def wrapped(**kwargs):
+        def wrapped(req, **kwargs):
             # prep the request
             try:
-                request_classname = attr + "Request"
-                Request = getattr(self._messagelib, request_classname)
-                req = Request()
-                for k, v in kwargs.items():
-                    if isinstance(v, list):
-                        getattr(req, k).extend(v)
-                    elif isinstance(v, dict):
-                        getattr(req, k).update(v)
-                    elif isinstance(v, Message):
-                        getattr(req, k).CopyFrom(v)
-                    else:
-                        setattr(req, k, v)
+                if req is None:
+                    request_classname = attr + "Request"
+                    Request = getattr(self._messagelib, request_classname)
+                    req = Request()
+                    for k, v in kwargs.items():
+                        if isinstance(v, list):
+                            getattr(req, k).extend(v)
+                        elif isinstance(v, dict):
+                            getattr(req, k).update(v)
+                        elif isinstance(v, Message):
+                            getattr(req, k).CopyFrom(v)
+                        else:
+                            setattr(req, k, v)
 
                 if self._stub is None:
                     self.connect()
@@ -256,18 +256,22 @@ class GrpcClient:
 
     def __getattr__(self, attr):
         def wrapped(*args, **kwargs):
-            if args:
+            if len(args) > 1:
                 raise ValueError("only kwargs are accepted")
+            elif len(args) == 1:
+                req = args[0]
+            else:
+                req = None
             # 执行每条命令都会调用该方法
             pool = self._connection_pool
             # 弹出一个连接
             connection = pool.get_connection()
             try:
-                return getattr(connection, attr)(**kwargs)
+                return getattr(connection, attr)(req, **kwargs)
             except grpc.RpcError as e:
                 # 如果是连接问题，关闭有问题的连接，下面再次使用这个连接的时候会重新连接。
                 connection.disconnect()
-                return getattr(connection, attr)(**kwargs)
+                return getattr(connection, attr)(req, **kwargs)
             finally:
                 # 不管怎样都要把这个连接归还到连接池
                 pool.release(connection)

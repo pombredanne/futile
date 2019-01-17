@@ -26,7 +26,7 @@ except ImportError:
 try:
     import ujson as json
 except ImportError:
-    import re
+    import json
 from urllib.parse import (
     quote as urlquote,
     unquote as urlunquote,

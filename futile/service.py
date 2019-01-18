@@ -251,7 +251,7 @@ class GrpcClient:
             )
         ret = []
         for connection in connections:
-            ret.append(getattr(connection, method)(**kwargs))
+            ret.append(getattr(connection, method)(None, **kwargs))
         return ret
 
     def __getattr__(self, attr):

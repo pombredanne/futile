@@ -135,6 +135,23 @@ def insert_or_update(table, defaults, **where):
     return stmt
 
 
+def insert_many(table, fields, values_list, ignore=""):
+    """
+    insert ignore into table (keys) values (values), (values)...)
+
+    >>> insert_many("foo", ["bar", "baz"], [[1, 2], [3, 4], [5, 6]])
+    "insert ignore into foo (`bar`,`baz`) values ('1','2'),('3','4'),('5','6')"
+    """
+    fields = ",".join(map(_quote_key, fields))
+    sql_values = []
+    for values in values_list:
+        values = ",".join(map(_quote, values))
+        sql_values.append("(" + values + ")")
+    tmpl = "insert ignore into %s (%s) values %s"
+    stmt = tmpl % (table, fields, ",".join(sql_values))
+    return stmt
+
+
 def select(table, keys="*", where=None, limit=None, offset=None):
     if isinstance(keys, (tuple, list)):
         keys = ",".join(keys)
@@ -249,4 +266,7 @@ def main():
 
 
 if __name__ == "__main__":
+    import doctest
+
+    doctest.testmod()
     main()

@@ -101,12 +101,6 @@ def script_init(
     return args
 
 
-def script_alive():
-    """
-    answer health check calls
-    """
-
-
 class GrpcConnection:
     """
     not thread safe, use connection pool to maintain thread-safety
@@ -235,6 +229,7 @@ class GrpcClient:
         self._ip = ip
         self._port = port
 
+    # XXX broadcast does not work with K8S clusterIP
     def broadcast(self, method, **kwargs):
         if self._ip:
             connections = [
@@ -292,11 +287,6 @@ def make_client2(service_name, *, service_idl=None, conf=None, **kwargs):
         return GrpcClient(service_name, service_idl=service_idl, **kwargs)
     except Exception:
         return None
-
-
-# deprecated
-def make_client(service_name, client_stub, *args, **kwargs):
-    pass
 
 
 class MetricsInterceptor(grpc.ServerInterceptor):
@@ -386,11 +376,3 @@ def run_service2(
         server.start()
         while True:
             time.sleep(3600)
-
-
-# DEPRECATED
-def run_service(service_name, *, server=None, port=10086, bind_ip="[::]"):
-    """
-    初始化一个服务
-    """
-    pass

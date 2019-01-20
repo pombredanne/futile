@@ -153,6 +153,10 @@ def insert_many(table, fields, values_list, ignore=""):
 
 
 def select(table, keys="*", where=None, limit=None, offset=None):
+    """
+    >>> select("alibaba_product", where={"product_id": 1}, limit=5, offset=5)
+    'select * from alibaba_product where `product_id`='1' limit 5 offset 5'
+    """
     if isinstance(keys, (tuple, list)):
         keys = ",".join(keys)
     tmpl = "select %s from %s"
@@ -170,6 +174,41 @@ def select(table, keys="*", where=None, limit=None, offset=None):
     return " ".join(sql)
 
 
+def create_table(table, fields, indexes=None, unique=None):
+    sql = [
+        "create table if not exists ",
+        table,
+        "(id bigint unsigned not null primary key auto_increment,",
+    ]
+    for field_name, field_type in fields:
+        sql.append(_quote_key(field_name))
+        sql.append(field_type)
+        sql.append(",")
+    if indexes:
+        for index in indexes:
+            sql.append("index")
+            if isinstance(index, str):
+                index = [index]
+            sql.append(
+                "idx_%s(%s)" % ("_".join(index), ",".join(map(_quote_key, index)))
+            )
+            sql.append(",")
+    if unique:
+        for uniq in unique:
+            sql.append("unique")
+            if isinstance(uniq, str):
+                uniq = [uniq]
+            sql.append(
+                "uniq_%s(%s)" % ("_".join(uniq), ",".join(map(_quote_key, uniq)))
+            )
+            sql.append(",")
+    sql.pop()
+    sql.append(") Engine=InnoDB default charset=utf8mb4 collate utf8mb4_general_ci;")
+    stmt = " ".join(sql)
+
+    return stmt
+
+
 class MysqlDatabase:
     def __init__(self, client, dry_run=False):
         self._client = client
@@ -184,38 +223,7 @@ class MysqlDatabase:
         return cursor
 
     def create_table(self, table, fields, indexes=None, unique=None):
-        sql = [
-            "create table if not exists ",
-            table,
-            "(id bigint unsigned not null primary key auto_increment,",
-        ]
-        for field_name, field_type in fields:
-            sql.append(_quote_key(field_name))
-            sql.append(field_type)
-            sql.append(",")
-        if indexes:
-            for index in indexes:
-                sql.append("index")
-                if isinstance(index, str):
-                    index = [index]
-                sql.append(
-                    "idx_%s(%s)" % ("_".join(index), ",".join(map(_quote_key, index)))
-                )
-                sql.append(",")
-        if unique:
-            for uniq in unique:
-                sql.append("unique")
-                if isinstance(uniq, str):
-                    uniq = [uniq]
-                sql.append(
-                    "uniq_%s(%s)" % ("_".join(uniq), ",".join(map(_quote_key, uniq)))
-                )
-                sql.append(",")
-        sql.pop()
-        sql.append(
-            ") Engine=InnoDB default charset=utf8mb4 collate utf8mb4_general_ci;"
-        )
-        stmt = " ".join(sql)
+        stmt = create_table(table, fields, indexes, unique)
         if self._dry_run:
             print(stmt)
         else:
@@ -262,7 +270,6 @@ def main():
         [["product_id", "city"], ["id"]],
     )
     db.insert("alibaba_deal_info", {"foo": "bar", "a": "b"})
-    db.select("alibaba_product", where={"product_id": 1}, limit=5, offset=5)
 
 
 if __name__ == "__main__":

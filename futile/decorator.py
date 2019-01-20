@@ -86,6 +86,7 @@ def before(n):
     return decorate
 
 
+# NOTE: not tested
 def throttle(wait=0, error_wait=0):
 
     cache_time = None  # 存在则表示已经有过缓存了

@@ -314,7 +314,7 @@ def run_service2(
     service_idl: str = None,
     server_type: str = "thread",
     max_workers: int = 4,
-    ip: str = "[::]",
+    ip: str = "0.0.0.0",
     port: int = None,
     logger=None,
     conf=None,

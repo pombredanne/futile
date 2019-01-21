@@ -64,7 +64,7 @@ def emit_timer(key, value, *, tags=None, rate=1):
 
 def emit_store(key, value, *, tags=None, rate=1, delta=False):
     if _emitter:
-        _emitter.emit_timer(key, value, tags=tags, rate=rate, delta=delta)
+        _emitter.emit_store(key, value, tags=tags, rate=rate, delta=delta)
 
 
 class TagStatsClient:

@@ -59,7 +59,8 @@ class Timer:
                 delay / self.get_total() * 100,
             )
         if self._send_metrics:
-            metrics.emit_timer(subtask, delay, tags=self._tags)
+            tags = {"subtask": subtask, **self._tags}
+            metrics.emit_timer("timer", delay, tags=tags)
 
         return delay
 
@@ -73,8 +74,8 @@ class Timer:
                 status,
             )
         if self._send_metrics:
-            tags = {"status": status, **self._tags}
-            metrics.emit_timer("_total", self.get_total(), tags=tags)
+            tags = {"status": status, "subtask": "_total", **self._tags}
+            metrics.emit_timer("timer", self.get_total(), tags=tags)
 
     def get(self, name):
         return self.delays.get(name, 0)

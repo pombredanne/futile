@@ -7,7 +7,7 @@ from futile.cache import Cache, _DEFAULT_TIMEOUT
 
 class ExpiringCache(Cache):
     def __init__(self, default_timeout=_DEFAULT_TIMEOUT):
-        self._default_timeout = _DEFAULT_TIMEOUT
+        self._default_timeout = default_timeout
         self._cache = {}
         self._lock = threading.RLock()
 

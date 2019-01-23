@@ -135,7 +135,7 @@ def insert_or_update(table, defaults, **where):
     return stmt
 
 
-def insert_many(table, fields, values_list, ignore=""):
+def insert_many(table, fields, values_list, ignore=True):
     """
     insert ignore into table (keys) values (values), (values)...)
 
@@ -209,6 +209,20 @@ def create_table(table, fields, indexes=None, unique=None):
     return stmt
 
 
+def insert(table, defaults):
+    fields = ",".join(map(_quote_key, defaults.keys()))
+    values = ",".join(map(_quote, defaults.values()))
+    tmpl = "insert into %s (%s) values (%s)"
+    stmt = tmpl % (table, fields, values)
+    return stmt
+
+
+def update(table, defaults, **where):
+    tmpl = "update %s set %s where %s"
+    stmt = tmpl % (table, _dict2str(defaults), _dict2str(where, " and "))
+    return stmt
+
+
 class MysqlDatabase:
     def __init__(self, client, dry_run=False):
         self._client = client
@@ -237,18 +251,14 @@ class MysqlDatabase:
             return self.query(stmt)
 
     def insert(self, table, defaults):
-        fields = ",".join(map(_quote_key, defaults.keys()))
-        values = ",".join(map(_quote, defaults.values()))
-        tmpl = "insert into %s (%s) values (%s)"
-        stmt = tmpl % (table, fields, values)
+        stmt = insert(table, defaults)
         if self._dry_run:
             print(stmt)
         else:
             return self.query(stmt)
 
     def update(self, table, defaults, **where):
-        tmpl = "update %s set %s where %s"
-        stmt = tmpl % (table, _dict2str(defaults), _dict2str(where, " and "))
+        stmt = update(table, defaults, **where)
         if self._dry_run:
             print(stmt)
         else:
@@ -260,6 +270,20 @@ class MysqlDatabase:
             print(stmt)
         else:
             return self.query(stmt)
+
+    def iter_select(self, table, keys="*", where=None, offset=0, chunk_size=20):
+        """
+        迭代读取所有元素
+        """
+        while True:
+            cursor = self.select(
+                table, keys=keys, where=where, limit=chunk_size, offset=offset
+            )
+            rows = cursor.fetchall()
+            if not rows:
+                break
+            yield from rows
+            offset += chunk_size
 
 
 def main():

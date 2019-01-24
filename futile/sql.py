@@ -239,9 +239,10 @@ def update(table, defaults, **where):
 
 
 class MysqlDatabase:
-    def __init__(self, client, dry_run=False):
+    def __init__(self, client, dry_run=False, log_id=""):
         self._client = client
         self._dry_run = dry_run
+        self._log_id = f"/* {log_id} */"
 
     def query(self, stmt, commit=True):
         conn = self._client.connection()
@@ -251,8 +252,12 @@ class MysqlDatabase:
             conn.commit()
         return cursor
 
+    def _add_log_id(self, stmt):
+        return stmt + self._log_id
+
     def create_table(self, table, fields, indexes=None, unique=None):
         stmt = create_table(table, fields, indexes, unique)
+        stmt = self._add_log_id(stmt)
         if self._dry_run:
             print(stmt)
         else:
@@ -260,6 +265,7 @@ class MysqlDatabase:
 
     def insert_or_update(self, table, defaults, **where):
         stmt = insert_or_update(table, defaults, **where)
+        stmt = self._add_log_id(stmt)
         if self._dry_run:
             print(stmt)
         else:
@@ -267,6 +273,7 @@ class MysqlDatabase:
 
     def insert(self, table, defaults):
         stmt = insert(table, defaults)
+        stmt = self._add_log_id(stmt)
         if self._dry_run:
             print(stmt)
         else:
@@ -274,6 +281,7 @@ class MysqlDatabase:
 
     def update(self, table, defaults, **where):
         stmt = update(table, defaults, **where)
+        stmt = self._add_log_id(stmt)
         if self._dry_run:
             print(stmt)
         else:
@@ -283,6 +291,7 @@ class MysqlDatabase:
         self, table, keys="*", where=None, limit=None, offset=None, order_by=None
     ):
         stmt = select(table, keys, where, limit, offset)
+        stmt = self._add_log_id(stmt)
         if self._dry_run:
             print(stmt)
         else:
@@ -304,7 +313,7 @@ class MysqlDatabase:
 
 
 def main():
-    db = MysqlDatabase(None, dry_run=True)
+    db = MysqlDatabase(None, dry_run=True, log_id="foo")
     db.create_table(
         "alibaba_deal_info",
         [("product_id", "varchar(128)")],

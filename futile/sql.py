@@ -107,6 +107,9 @@ def _quote_key(s):
     return "`" + s + "`"
 
 
+OP_REF = dict(eq="=", gt=">", ge=">=", lt="<", le="<=", ne="!=")
+
+
 def _dict2str(dictin, joiner=", "):
     # in sql, where key='value' or key in (value), dicts are the values to update
     sql = []
@@ -114,10 +117,15 @@ def _dict2str(dictin, joiner=", "):
         if isinstance(v, (list, tuple)):
             part = f"`{k}` in ({','.join(map(_quote, v))})"
         else:
-            if v is None:
-                part = f"`{k}` is null"
+            if "__" in k:
+                k, op = k.split("__")
             else:
-                part = f"`{k}`={_quote(v)}"
+                op = "eq"
+            real_op = OP_REF[op]
+            if v is None:
+                part = f"{_quote_key(k)} is null"
+            else:
+                part = f"{_quote_key(k)}{real_op}{_quote(v)}"
         sql.append(part)
     return joiner.join(sql)
 
@@ -152,10 +160,14 @@ def insert_many(table, fields, values_list, ignore=True):
     return stmt
 
 
-def select(table, keys="*", where=None, limit=None, offset=None):
+def select(table, keys="*", where=None, limit=None, offset=None, order_by=None):
     """
     >>> select("alibaba_product", where={"product_id": 1}, limit=5, offset=5)
-    'select * from alibaba_product where `product_id`='1' limit 5 offset 5'
+    "select * from alibaba_product where `product_id`='1' limit 5 offset 5"
+    >>> select("alibaba_product", where=dict(product_id__gt=10))
+    "select * from alibaba_product where `product_id`>'10'"
+    >>> select("alibaba_product", where=dict(product_id__gt=10), order_by="id")
+    "select * from alibaba_product where `product_id`>'10' order by id"
     """
     if isinstance(keys, (tuple, list)):
         keys = ",".join(keys)
@@ -170,6 +182,9 @@ def select(table, keys="*", where=None, limit=None, offset=None):
     if offset:
         sql.append("offset")
         sql.append(str(offset))
+    if order_by:
+        sql.append("order by")
+        sql.append(str(order_by))
 
     return " ".join(sql)
 
@@ -264,26 +279,28 @@ class MysqlDatabase:
         else:
             return self.query(stmt)
 
-    def select(self, table, keys="*", where=None, limit=None, offset=None):
+    def select(
+        self, table, keys="*", where=None, limit=None, offset=None, order_by=None
+    ):
         stmt = select(table, keys, where, limit, offset)
         if self._dry_run:
             print(stmt)
         else:
             return self.query(stmt)
 
-    def iter_select(self, table, keys="*", where=None, offset=0, chunk_size=20):
+    def iter_select(self, table, keys="*", where=None, chunk_size=20):
         """
         迭代读取所有元素
         """
         while True:
             cursor = self.select(
-                table, keys=keys, where=where, limit=chunk_size, offset=offset
+                table, keys=keys, where=where, limit=chunk_size, order_by="id"
             )
             rows = cursor.fetchall()
             if not rows:
                 break
             yield from rows
-            offset += chunk_size
+            where["id__gt"] = rows[-1]["id"]
 
 
 def main():

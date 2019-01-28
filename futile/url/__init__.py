@@ -42,6 +42,8 @@ from futile.strings import ensure_str
 PUBLIC_SUFFIX_FILE = os.path.join(os.path.dirname(__file__), "public_suffix.dat")
 PUBLIC_SUFFIX = set(read_list_from_file(PUBLIC_SUFFIX_FILE, comment="//"))
 
+JSONP_PATTERN = re.compiled(r"[\w\.&\s]+?\((\{.*?\})\)")
+
 
 def depack_jsonp(jsonp: str) -> dict:
     """
@@ -55,9 +57,9 @@ def depack_jsonp(jsonp: str) -> dict:
     try:
         jsonp = ensure_str(jsonp, use_chardet=True)
         # by standard, json data should be wrapped in a dict
-        return re.search(r"[\w\.&\s]+?\((\{.*?\})\)", jsonp).group(1)
+        return JSONP_PATTERN.search(jsonp).group(1)
     except Exception:
-        return None
+        return {}
 
 
 def _download(url):
@@ -288,7 +290,7 @@ def normalize_url(
             fragment = u.fragment
 
         return urlunsplit([scheme, netloc, path, query, fragment])
-    except Exception as e:
+    except Exception:
         logging.exception("normalize url failed, url=%s", url)
         return url
 

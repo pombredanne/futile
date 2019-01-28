@@ -331,9 +331,9 @@ class lru_cache(object):
             if maxsize is None:
                 cache = UnboundedCache()
             elif timeout is None:
-                cache = LRUCache(maxsize)
+                cache = LruCache(maxsize)
             else:
-                cache = ExpiringLRUCache(maxsize, default_timeout=timeout)
+                cache = ExpiringLruCache(maxsize, default_timeout=timeout)
         self.cache = cache
         self._ignore_unhashable_args = ignore_unhashable_args
 

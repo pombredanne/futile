@@ -10,8 +10,9 @@ class TokenBucket:
 
     def __init__(self, capacity: int, rate: int) -> None:
         """
-        :param capacity: 桶的最大容量
-        :param rate: 填充速度(个/s)
+        Args:
+            capacity: 桶的最大容量
+            rate: 填充速度(个/s)
         """
         self.capacity = capacity
         self.rate = rate
@@ -36,15 +37,16 @@ class TokenBucket:
             self._update_tokens()
             return self.tokens
 
-    def consume(self, count: int) -> int:
+    def consume(self, count: int) -> float:
         """
-        return (ok, wait) 是否可以执行, 如果不可以执行, 至少需要等待的时间
+        Returns:
+            sleep_time: 下次可执行时间
         """
         with self.lock:
             self._update_tokens()
             if self.tokens >= count:
                 self.tokens -= count
-                return 0
+                return 0.0
             else:
                 return (count - self.tokens) / self.rate
 

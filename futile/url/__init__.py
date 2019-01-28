@@ -42,7 +42,7 @@ from futile.strings import ensure_str
 PUBLIC_SUFFIX_FILE = os.path.join(os.path.dirname(__file__), "public_suffix.dat")
 PUBLIC_SUFFIX = set(read_list_from_file(PUBLIC_SUFFIX_FILE, comment="//"))
 
-JSONP_PATTERN = re.compiled(r"[\w\.&\s]+?\((\{.*?\})\)")
+JSONP_PATTERN = re.compile(r"[\w\.&\s]+?\((\{.*?\})\)")
 
 
 def depack_jsonp(jsonp: str) -> dict:

@@ -5,7 +5,7 @@ import logging.handlers
 import threading
 
 
-LOG_FORMAT = "%(asctime)s %(process)d-%(threadName)s [%(name)s]-%(levelname)s - %(message)s - %(filename)s:%(lineno)d"
+LOG_FORMAT = "%(asctime)s - %(process)d - %(threadName)s - %(name)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s"
 
 
 def setup_thread_excepthook():
